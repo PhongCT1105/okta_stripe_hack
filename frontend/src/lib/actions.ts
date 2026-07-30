@@ -535,9 +535,12 @@ export async function submitProof(
     }
   }
 
-
-
   revalidatePath(`/groups/${groupId}`);
+  revalidatePath("/wallet");
+  // A miss spends credits, and the balance lives in the header — which sits in
+  // the layout and would otherwise keep whatever it rendered before the verdict.
+  revalidatePath("/", "layout");
+
   return {
     ok: true,
     status: verdict.status,
