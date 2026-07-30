@@ -5,8 +5,7 @@ import { ApprovePaymentForm } from "@/components/approve-payment-form";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { formatMoney } from "@/lib/format";
-import { getGroup, getPaymentRequest, getUser } from "@/lib/data";
-import { challenges } from "@/lib/mock/store";
+import { getChallenge, getGroup, getPaymentRequest, getUser } from "@/lib/data";
 
 /**
  * Commitment payment consent screen.
@@ -29,7 +28,7 @@ export default async function PaymentRequestPage({
 
   if (request.status === "paid") redirect(`/pay/${requestId}/success`);
 
-  const challenge = challenges.find((c) => c.id === request.challengeId) ?? null;
+  const challenge = await getChallenge(request.challengeId);
   const group = challenge ? await getGroup(challenge.groupId) : null;
   const member = await getUser(request.userId);
 

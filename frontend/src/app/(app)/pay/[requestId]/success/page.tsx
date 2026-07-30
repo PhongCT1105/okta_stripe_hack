@@ -4,8 +4,8 @@ import { CheckCircle2, CircleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { formatMoney } from "@/lib/format";
-import { getGroup, getPaymentRequest } from "@/lib/data";
-import { challenges } from "@/lib/mock/store";
+import { getChallenge, getGroup, getPaymentRequest } from "@/lib/data";
+import { markPaymentPaid } from "@/lib/repository";
 import { verifyCommitmentCheckout } from "@/lib/stripe";
 
 /**
@@ -28,14 +28,14 @@ export default async function PaymentSuccessPage({
   const request = await getPaymentRequest(requestId);
   if (!request) notFound();
 
-  const challenge = challenges.find((c) => c.id === request.challengeId) ?? null;
+  const challenge = await getChallenge(request.challengeId);
   const group = challenge ? await getGroup(challenge.groupId) : null;
   let verified = request.status === "paid";
 
   if (!verified && sessionId && request.stripeCheckoutSessionId === sessionId) {
     try {
       verified = await verifyCommitmentCheckout(sessionId, request);
-      if (verified) request.status = "paid";
+      if (verified) await markPaymentPaid(request.id, sessionId);
     } catch (error) {
       console.error("Unable to verify Stripe Checkout Session", {
         requestId,

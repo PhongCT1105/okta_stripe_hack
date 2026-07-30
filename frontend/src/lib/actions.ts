@@ -6,25 +6,23 @@ import { evaluateProof } from "@/lib/agent";
 import { proposeChallenge } from "@/lib/chat-agent";
 import {
   getActiveChallenge,
+  getChallenge,
   getChatMessages,
   getCurrentRound,
   getCurrentUser,
   getGroupByInviteCode,
   getMembership,
-} from "@/lib/data";
-import {
-  challengeParticipants,
-  challenges,
-  chatMessages,
-  groupMembers,
-  groups,
+  getParticipant,
+  getPaymentRequest,
+  getUsers,
   INTEREST_OPTIONS,
   localDate,
-  nextId,
-  paymentRequests,
-  submissions,
-  users,
-} from "@/lib/mock/store";
+} from "@/lib/data";
+import {
+  activateChallenge, createGroupRecord, insertMessage, joinGroupRecord,
+  overrideSubmission, persistVerdict, removeParticipant,
+  replaceProposal, setCheckoutSession, updateUserProfile, upsertParticipant,
+} from "@/lib/repository";
 import { createCommitmentCheckout } from "@/lib/stripe";
 import type { SubmissionStatus, User } from "@/lib/types";
 
@@ -65,17 +63,6 @@ async function requireMember(groupId: string): Promise<User | null> {
   return membership ? user : null;
 }
 
-/** Generates a readable invite code, e.g. "BUILD30" style. */
-function makeInviteCode(groupName: string): string {
-  const letters = groupName
-    .toUpperCase()
-    .replace(/[^A-Z]/g, "")
-    .slice(0, 5)
-    .padEnd(5, "X");
-  const suffix = (groups.length + 1).toString().padStart(2, "0");
-  return `${letters}${suffix}`;
-}
-
 export async function createGroup(
   _prev: ActionResult | null,
   formData: FormData,
@@ -86,24 +73,10 @@ export async function createGroup(
   }
 
   const user = await getCurrentUser();
-  const groupId = nextId("grp");
-
-  groups.push({
-    id: groupId,
-    name,
-    inviteCode: makeInviteCode(name),
-    ownerId: user.id,
-  });
-  groupMembers.push({
-    groupId,
-    userId: user.id,
-    role: "organizer",
-    streak: 0,
-    score: 0,
-  });
+  const group = await createGroupRecord(name, user.id);
 
   revalidatePath("/groups");
-  redirect(`/groups/${groupId}`);
+  redirect(`/groups/${group.id}`);
 }
 
 export async function joinGroup(
@@ -117,18 +90,7 @@ export async function joinGroup(
   }
 
   const user = await getCurrentUser();
-  const already = groupMembers.some(
-    (m) => m.groupId === group.id && m.userId === user.id,
-  );
-  if (!already) {
-    groupMembers.push({
-      groupId: group.id,
-      userId: user.id,
-      role: "member",
-      streak: 0,
-      score: 0,
-    });
-  }
+  await joinGroupRecord(group.id, user.id);
 
   revalidatePath(`/groups/${group.id}`);
   redirect(`/groups/${group.id}`);
@@ -163,12 +125,9 @@ export async function updateProfile(
   }
 
   const user = await getCurrentUser();
-  const stored = users.find((u) => u.id === user.id);
-  if (!stored) return { ok: false, error: "We couldn't find your account." };
-
-  stored.displayName = displayName;
-  stored.headline = headline.slice(0, 160);
-  stored.interests = interests;
+  if (!(await updateUserProfile(user.id, displayName, headline.slice(0, 160), interests))) {
+    return { ok: false, error: "We couldn't find your account." };
+  }
 
   revalidatePath("/profile");
   revalidatePath("/groups");
@@ -187,13 +146,11 @@ export async function sendMessage(
   const user = await requireMember(groupId);
   if (!user) return { ok: false, error: "You're not a member of this group." };
 
-  chatMessages.push({
-    id: nextId("msg"),
+  await insertMessage({
     groupId,
     role: "member",
     userId: user.id,
     body: body.slice(0, 1000),
-    createdAt: new Date().toISOString(),
   });
 
   revalidatePath(`/groups/${groupId}`);
@@ -224,32 +181,14 @@ export async function summonAgent(
     return { ok: false, error: "Talk about what you want to commit to first." };
   }
 
-  const proposal = await proposeChallenge(history, users);
+  const proposal = await proposeChallenge(history, await getUsers());
 
   // A new proposal replaces any outstanding one — the group only ever weighs
   // up a single ask at a time.
-  const existingIndex = challenges.findIndex(
-    (c) => c.groupId === groupId && c.status === "proposed",
-  );
-  if (existingIndex >= 0) {
-    const [stale] = challenges.splice(existingIndex, 1);
-    const staleParticipants = challengeParticipants.filter(
-      (p) => p.challengeId === stale.id,
-    );
-    for (const participant of staleParticipants) {
-      challengeParticipants.splice(
-        challengeParticipants.indexOf(participant),
-        1,
-      );
-    }
-  }
-
-  const challengeId = nextId("chl");
   const dueAt = new Date();
   dueAt.setHours(proposal.dueHour, 0, 0, 0);
 
-  challenges.push({
-    id: challengeId,
+  const challenge = await replaceProposal({
     groupId,
     title: proposal.title,
     description: proposal.description,
@@ -263,14 +202,12 @@ export async function summonAgent(
     rationale: proposal.rationale,
   });
 
-  chatMessages.push({
-    id: nextId("msg"),
+  await insertMessage({
     groupId,
     role: "agent",
     userId: null,
     body: proposal.rationale,
-    createdAt: new Date().toISOString(),
-    challengeId,
+    challengeId: challenge.id,
   });
 
   revalidatePath(`/groups/${groupId}`);
@@ -291,7 +228,7 @@ export async function joinChallenge(
   const challengeId = String(formData.get("challengeId") ?? "");
   const stakeDollars = Number(formData.get("stakeAmount") ?? 0);
 
-  const challenge = challenges.find((c) => c.id === challengeId);
+  const challenge = await getChallenge(challengeId);
   if (!challenge) return { ok: false, error: "That proposal no longer exists." };
 
   const user = await requireMember(challenge.groupId);
@@ -301,34 +238,15 @@ export async function joinChallenge(
     return { ok: false, error: "Pick a stake between $0 and $100." };
   }
 
-  const existing = challengeParticipants.find(
-    (p) => p.challengeId === challengeId && p.userId === user.id,
-  );
-  if (existing) {
-    existing.stakeCents = Math.round(stakeDollars * 100);
-  } else {
-    challengeParticipants.push({
-      challengeId,
-      userId: user.id,
-      stakeCents: Math.round(stakeDollars * 100),
-      joinedAt: new Date().toISOString(),
-    });
-  }
-
-  const count = challengeParticipants.filter(
-    (p) => p.challengeId === challengeId,
-  ).length;
+  await upsertParticipant(challengeId, user.id, Math.round(stakeDollars * 100));
+  const count = await activateChallenge(challengeId);
 
   if (challenge.status === "proposed" && count >= MEMBERS_REQUIRED_TO_START) {
-    challenge.status = "active";
-    challenge.startDate = localDate();
-    chatMessages.push({
-      id: nextId("msg"),
+    await insertMessage({
       groupId: challenge.groupId,
       role: "agent",
       userId: null,
       body: `${count} of you are in, so "${challenge.title}" starts today and runs for ${challenge.durationDays} days. I'll check each day's proof.`,
-      createdAt: new Date().toISOString(),
       challengeId,
     });
   }
@@ -344,16 +262,13 @@ export async function declineChallenge(
 ): Promise<ActionResult> {
   const challengeId = String(formData.get("challengeId") ?? "");
 
-  const challenge = challenges.find((c) => c.id === challengeId);
+  const challenge = await getChallenge(challengeId);
   if (!challenge) return { ok: false, error: "That proposal no longer exists." };
 
   const user = await requireMember(challenge.groupId);
   if (!user) return { ok: false, error: "You're not a member of this group." };
 
-  const index = challengeParticipants.findIndex(
-    (p) => p.challengeId === challengeId && p.userId === user.id,
-  );
-  if (index >= 0) challengeParticipants.splice(index, 1);
+  await removeParticipant(challengeId, user.id);
 
   revalidatePath(`/groups/${challenge.groupId}`);
   return { ok: true };
@@ -385,72 +300,17 @@ export async function submitProof(
   const round = getCurrentRound(challenge);
   if (!round) return { ok: false, error: "This challenge isn't running today." };
 
-  const participant = challengeParticipants.find(
-    (p) => p.challengeId === challenge.id && p.userId === user.id,
-  );
+  const participant = await getParticipant(challenge.id, user.id);
   if (!participant) {
     return { ok: false, error: "You didn't stake on this challenge." };
   }
 
   const verdict = await evaluateProof(challenge.title, proof);
 
-  const existingIndex = submissions.findIndex(
-    (s) =>
-      s.challengeId === challenge.id &&
-      s.userId === user.id &&
-      s.roundDate === round.date,
-  );
-  const submission = {
-    id: existingIndex >= 0 ? submissions[existingIndex].id : nextId("sub"),
-    challengeId: challenge.id,
-    roundDate: round.date,
-    userId: user.id,
-    proof,
-    status: verdict.status,
-    agentReason: verdict.reason,
-    submittedAt: new Date().toISOString(),
-  };
-  if (existingIndex >= 0) submissions.splice(existingIndex, 1, submission);
-  else submissions.push(submission);
-
-  const membership = groupMembers.find(
-    (m) => m.groupId === groupId && m.userId === user.id,
-  );
-  let paymentRequestId: string | undefined;
-
-  if (verdict.status === "passed") {
-    if (membership) {
-      membership.streak += 1;
-      membership.score += 10;
-    }
-  } else {
-    if (membership) membership.streak = 0;
-
-    // Only raise a payment request when this member has real money on the line.
-    if (participant.stakeCents > 0) {
-      const existing = paymentRequests.find(
-        (p) =>
-          p.challengeId === challenge.id &&
-          p.userId === user.id &&
-          p.roundDate === round.date,
-      );
-      if (existing) {
-        paymentRequestId = existing.id;
-      } else {
-        const request = {
-          id: nextId("pay"),
-          challengeId: challenge.id,
-          roundDate: round.date,
-          userId: user.id,
-          amountCents: participant.stakeCents,
-          stripeCheckoutSessionId: null,
-          status: "pending" as const,
-        };
-        paymentRequests.push(request);
-        paymentRequestId = request.id;
-      }
-    }
-  }
+  const paymentRequestId = await persistVerdict({
+    challengeId: challenge.id, groupId, userId: user.id, roundDate: round.date,
+    proof, status: verdict.status, reason: verdict.reason, stakeCents: participant.stakeCents,
+  });
 
   revalidatePath(`/groups/${groupId}`);
   return {
@@ -470,7 +330,7 @@ export async function confirmPayment(
   formData: FormData,
 ): Promise<ActionResult> {
   const requestId = String(formData.get("requestId") ?? "");
-  const request = paymentRequests.find((p) => p.id === requestId);
+  const request = await getPaymentRequest(requestId);
   if (!request) return { ok: false, error: "That payment request no longer exists." };
 
   // Only the member who owes it can open their own commitment.
@@ -479,7 +339,7 @@ export async function confirmPayment(
     return { ok: false, error: "That payment request isn't yours." };
   }
 
-  const challenge = challenges.find((c) => c.id === request.challengeId);
+  const challenge = await getChallenge(request.challengeId);
   if (!challenge) return { ok: false, error: "The related challenge no longer exists." };
 
   let checkoutUrl: string;
@@ -489,7 +349,7 @@ export async function confirmPayment(
       return { ok: false, error: "Stripe did not return a Checkout URL." };
     }
 
-    request.stripeCheckoutSessionId = session.id;
+    await setCheckoutSession(request.id, session.id);
     checkoutUrl = session.url;
   } catch (error) {
     console.error("Unable to create Stripe Checkout Session", {
@@ -522,25 +382,7 @@ export async function overrideVerdict(formData: FormData): Promise<void> {
   const membership = await getMembership(groupId, user.id);
   if (membership?.role !== "organizer" && membership?.role !== "admin") return;
 
-  const submission = submissions.find((s) => s.id === submissionId);
-  if (!submission) return;
-
-  // The submission must belong to the group the caller is an organizer of.
-  const challenge = challenges.find((c) => c.id === submission.challengeId);
-  if (!challenge || challenge.groupId !== groupId) return;
-
-  submission.status = status;
-  submission.agentReason = "Overridden by the group organizer.";
-
-  if (status === "passed") {
-    const request = paymentRequests.find(
-      (p) =>
-        p.challengeId === submission.challengeId &&
-        p.userId === submission.userId &&
-        p.roundDate === submission.roundDate,
-    );
-    if (request && request.status === "pending") request.status = "canceled";
-  }
+  await overrideSubmission(submissionId, groupId, status);
 
   revalidatePath(`/groups/${groupId}`);
 }
@@ -565,11 +407,7 @@ export async function createChallenge(
     return { ok: false, error: "Enter a commitment amount of $0 or more." };
   }
 
-  const existingIndex = challenges.findIndex(
-    (c) => c.groupId === groupId && c.status === "proposed",
-  );
   const challenge = {
-    id: nextId("chl"),
     groupId,
     title,
     description,
@@ -587,8 +425,7 @@ export async function createChallenge(
     rationale: null,
   };
 
-  if (existingIndex >= 0) challenges.splice(existingIndex, 1, challenge);
-  else challenges.push(challenge);
+  await replaceProposal(challenge);
 
   revalidatePath(`/groups/${groupId}`);
   return { ok: true };
