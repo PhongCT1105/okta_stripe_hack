@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { CheckCircle2, CircleAlert } from "lucide-react";
+import { RefreshOnMount } from "@/components/refresh-on-mount";
 import { Button } from "@/components/ui/button";
 import { formatMoney } from "@/lib/format";
 import { getCurrentUser, getWalletBalance } from "@/lib/data";
@@ -79,6 +80,8 @@ export default async function TopUpSuccessPage({
 
   return (
     <div className="mx-auto flex max-w-lg flex-col gap-6">
+      {/* Credits were just added, so the header's balance is a render behind. */}
+      <RefreshOnMount />
       <div className="rounded-3xl border bg-card p-6 text-center sm:p-8">
         <div className="mx-auto flex size-16 items-center justify-center rounded-full bg-verified/12 text-verified">
           <CheckCircle2 aria-hidden className="size-9" />
