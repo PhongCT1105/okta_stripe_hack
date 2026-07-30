@@ -12,6 +12,7 @@ import {
   paymentRequests,
   submissions,
 } from "@/lib/mock/store";
+import { createCommitmentCheckout } from "@/lib/stripe";
 import type { SubmissionStatus } from "@/lib/types";
 
 /**
@@ -226,11 +227,8 @@ export async function submitProof(
 }
 
 /**
- * Marks a commitment payment complete.
- *
- * Placeholder for the Stripe step: the real flow creates a Checkout Session,
- * sends the member to Stripe, and flips this status from the webhook. Nothing
- * here should ever run without the member having explicitly approved.
+ * Creates a Stripe-hosted Checkout Session after explicit member approval.
+ * The success route verifies the Session server-side before marking it paid.
  */
 export async function confirmPayment(
   _prev: ActionResult | null,
@@ -240,12 +238,30 @@ export async function confirmPayment(
   const request = paymentRequests.find((p) => p.id === requestId);
   if (!request) return { ok: false, error: "That payment request no longer exists." };
 
-  request.status = "paid";
-  request.stripeCheckoutSessionId = `cs_test_${requestId}`;
-
   const challenge = challenges.find((c) => c.id === request.challengeId);
-  if (challenge) revalidatePath(`/groups/${challenge.groupId}`);
-  redirect(`/pay/${requestId}/success`);
+  if (!challenge) return { ok: false, error: "The related challenge no longer exists." };
+
+  let checkoutUrl: string;
+  try {
+    const session = await createCommitmentCheckout(request, challenge.title);
+    if (!session.url) {
+      return { ok: false, error: "Stripe did not return a Checkout URL." };
+    }
+
+    request.stripeCheckoutSessionId = session.id;
+    checkoutUrl = session.url;
+  } catch (error) {
+    console.error("Unable to create Stripe Checkout Session", {
+      requestId,
+      error: error instanceof Error ? error.message : "Unknown Stripe error",
+    });
+    return {
+      ok: false,
+      error: "Stripe Checkout is temporarily unavailable. Please try again.",
+    };
+  }
+
+  redirect(checkoutUrl);
 }
 
 /**

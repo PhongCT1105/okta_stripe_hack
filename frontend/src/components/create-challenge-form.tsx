@@ -25,15 +25,12 @@ const AGENT_SUGGESTIONS = [
   {
     title: "Complete one LeetCode problem",
     description:
-      "Solve any problem end to end and paste the link or a short summary of your approach.",
+      "Solve any problem end to end and submit the accepted submission link or a screenshot.",
   },
   {
-    title: "Ship one commit to a side project",
-    description: "Any real change counts. Link the commit.",
-  },
-  {
-    title: "Read 20 pages",
-    description: "Note the book and the pages you covered.",
+    title: "Complete 10 push-ups",
+    description:
+      "Upload a side-view video. Your full body and working arm must remain visible.",
   },
 ];
 

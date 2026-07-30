@@ -1,14 +1,13 @@
 import type { Metadata } from "next";
-import { DM_Sans, Geist_Mono, Nunito } from "next/font/google";
+import { DM_Sans, Geist_Mono, Space_Grotesk } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
 
-// Nunito carries headings and the streak numerals — rounded and warm.
-const nunito = Nunito({
-  variable: "--font-nunito",
+// Space Grotesk gives product headings a crisp, technical personality.
+const spaceGrotesk = Space_Grotesk({
+  variable: "--font-space-grotesk",
   subsets: ["latin"],
-  weight: ["700", "800", "900"],
 });
 
 // DM Sans handles body copy: neutral enough to stay readable at 14–16px.
@@ -24,9 +23,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Commitment Agent",
+  title: "Commitment Agent — Promises that stick",
   description:
-    "Shared challenges for friend groups, verified by an AI accountability agent.",
+    "Turn group promises into shared challenges with AI-verified proof, visible streaks, and user-approved Stripe commitments.",
 };
 
 export default function RootLayout({
@@ -37,7 +36,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${nunito.variable} ${dmSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${spaceGrotesk.variable} ${dmSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         <TooltipProvider>{children}</TooltipProvider>

@@ -15,10 +15,12 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { submitProof, type VerdictResult } from "@/lib/actions";
 import { formatMoney } from "@/lib/format";
+import { countPushUps, readLeetCodeScreenshot } from "@/lib/proof-verifiers";
 
 /**
  * Proof submission and the agent's ruling, in one dialog.
@@ -38,6 +40,10 @@ export function SubmitProofDialog({
   commitmentAmountCents: number;
 }) {
   const [open, setOpen] = useState(false);
+  const [proof, setProof] = useState("");
+  const [analysisError, setAnalysisError] = useState("");
+  const [analysisLabel, setAnalysisLabel] = useState("");
+  const [progress, setProgress] = useState(0);
   const [state, formAction, pending] = useActionState<VerdictResult | null, FormData>(
     submitProof,
     null,
@@ -48,6 +54,36 @@ export function SubmitProofDialog({
   // swaps this dialog out for the result panel, so there is nothing to reset.
   const showVerdict = Boolean(state?.ok && state.status);
   const passed = state?.status === "passed";
+  const isPushUp = /push[\s-]?ups?/i.test(challengeTitle);
+  const isLeetCode = /leetcode/i.test(challengeTitle);
+  const analyzing = Boolean(analysisLabel);
+
+  async function analyzeFile(file: File | undefined) {
+    if (!file) return;
+    setProof("");
+    setAnalysisError("");
+    setProgress(0);
+    try {
+      if (isPushUp) {
+        setAnalysisLabel("Counting repetitions");
+        const evidence = await countPushUps(file, setProgress);
+        setProof(`PUSHUP_EVIDENCE:${JSON.stringify(evidence)}`);
+        setAnalysisLabel("");
+        setProgress(100);
+        return;
+      }
+      setAnalysisLabel("Reading screenshot");
+      const text = await readLeetCodeScreenshot(file, setProgress);
+      setProof(`LEETCODE_SCREENSHOT_EVIDENCE:${text}`);
+      setAnalysisLabel("");
+      setProgress(100);
+    } catch (error) {
+      setAnalysisLabel("");
+      setAnalysisError(
+        error instanceof Error ? error.message : "The file could not be analyzed.",
+      );
+    }
+  }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -116,28 +152,100 @@ export function SubmitProofDialog({
         ) : (
           <form action={formAction}>
             <input type="hidden" name="groupId" value={groupId} />
+            <input type="hidden" name="proof" value={proof} />
             <DialogHeader>
               <DialogTitle>Submit your proof</DialogTitle>
               <DialogDescription>{challengeTitle}</DialogDescription>
             </DialogHeader>
 
             <FieldGroup className="py-4">
-              <Field data-invalid={state?.error ? true : undefined}>
-                <FieldLabel htmlFor="proof">What did you do?</FieldLabel>
-                <Textarea
-                  id="proof"
-                  name="proof"
-                  rows={4}
-                  autoFocus
-                  aria-invalid={state?.error ? true : undefined}
-                  placeholder="Paste a link, or describe specifically what you completed."
-                />
-                <FieldDescription>
-                  A link is strongest. Otherwise be specific — the agent rejects
-                  vague answers.
-                </FieldDescription>
-                {state?.error ? <FieldError>{state.error}</FieldError> : null}
-              </Field>
+              {isPushUp ? (
+                <Field data-invalid={analysisError ? true : undefined}>
+                  <FieldLabel htmlFor="proof-video">Push-up video</FieldLabel>
+                  <Input
+                    id="proof-video"
+                    type="file"
+                    accept="video/mp4,video/webm,video/quicktime"
+                    disabled={analyzing}
+                    onChange={(event) => void analyzeFile(event.target.files?.[0])}
+                  />
+                  <FieldDescription>
+                    Maximum 2 minutes. Record from the side with shoulders, elbows,
+                    wrists, and hips visible.
+                  </FieldDescription>
+                </Field>
+              ) : isLeetCode ? (
+                <>
+                  <Field>
+                    <FieldLabel htmlFor="proof-link">Accepted submission link</FieldLabel>
+                    <Input
+                      id="proof-link"
+                      type="url"
+                      placeholder="https://leetcode.com/submissions/detail/..."
+                      value={proof.startsWith("LEETCODE_SCREENSHOT_EVIDENCE:") ? "" : proof}
+                      onChange={(event) => {
+                        setProof(event.target.value);
+                        setAnalysisError("");
+                        setProgress(0);
+                      }}
+                    />
+                  </Field>
+                  <div className="relative text-center text-xs font-bold uppercase text-muted-foreground">
+                    <span className="relative z-10 bg-background px-3">or</span>
+                    <span className="absolute inset-x-0 top-1/2 border-t" />
+                  </div>
+                  <Field data-invalid={analysisError ? true : undefined}>
+                    <FieldLabel htmlFor="proof-screenshot">Result screenshot</FieldLabel>
+                    <Input
+                      id="proof-screenshot"
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      disabled={analyzing}
+                      onChange={(event) => void analyzeFile(event.target.files?.[0])}
+                    />
+                    <FieldDescription>
+                      Include the LeetCode page and the green Accepted result.
+                    </FieldDescription>
+                  </Field>
+                </>
+              ) : (
+                <Field>
+                  <FieldLabel htmlFor="proof-text">What did you do?</FieldLabel>
+                  <Textarea
+                    id="proof-text"
+                    rows={4}
+                    autoFocus
+                    value={proof}
+                    onChange={(event) => setProof(event.target.value)}
+                    placeholder="Paste a link, or describe specifically what you completed."
+                  />
+                </Field>
+              )}
+
+              {analyzing ? (
+                <div className="rounded-xl border bg-muted/50 p-3" aria-live="polite">
+                  <div className="flex items-center justify-between text-sm font-medium">
+                    <span className="flex items-center gap-2">
+                      <Spinner className="size-4" />
+                      {analysisLabel}
+                    </span>
+                    <span>{progress}%</span>
+                  </div>
+                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full rounded-full bg-primary transition-[width]"
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+                </div>
+              ) : progress === 100 && proof ? (
+                <p className="text-sm font-medium text-verified" aria-live="polite">
+                  Analysis complete. Ready to submit.
+                </p>
+              ) : null}
+              {analysisError || state?.error ? (
+                <FieldError>{analysisError || state?.error}</FieldError>
+              ) : null}
             </FieldGroup>
 
             <DialogFooter>
@@ -148,7 +256,7 @@ export function SubmitProofDialog({
                   </Button>
                 }
               />
-              <Button type="submit" size="lg" disabled={pending}>
+              <Button type="submit" size="lg" disabled={pending || analyzing || !proof.trim()}>
                 {pending ? (
                   <>
                     <Spinner data-icon="inline-start" />

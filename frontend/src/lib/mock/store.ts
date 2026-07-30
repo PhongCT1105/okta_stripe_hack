@@ -75,7 +75,7 @@ export const challenges: Challenge[] = [
     groupId: "grp_builder",
     title: "Complete one LeetCode problem",
     description:
-      "Solve any problem end to end and paste the link or a short summary of your approach.",
+      "Solve any problem end to end and submit the accepted submission link or a screenshot.",
     dueAt: todayAt(17),
     commitmentAmountCents: 500,
     agentGenerated: false,
