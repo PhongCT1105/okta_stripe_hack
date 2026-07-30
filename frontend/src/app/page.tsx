@@ -1,17 +1,21 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import {
   ArrowRight,
   Bot,
+  Camera,
   Check,
   CheckCircle2,
   CircleDollarSign,
   Clock3,
+  Code2,
+  Dumbbell,
   Flame,
-  LockKeyhole,
   ShieldCheck,
   Sparkles,
   Trophy,
+  Zap,
 } from "lucide-react";
 import { getOptionalSession } from "@/lib/auth0";
 import { BrandMark } from "@/components/brand-mark";
@@ -103,19 +107,18 @@ export default async function LandingPage() {
             className="h-8 gap-2 rounded-full border-foreground/20 bg-background/70 px-3 font-mono text-[11px] uppercase tracking-[0.12em] backdrop-blur"
           >
             <span className="size-2 rounded-full bg-verified" aria-hidden />
-            Built for friends who mean it
+            Delusion ends here
           </Badge>
 
           <h1 className="mt-7 max-w-3xl text-[clamp(3.4rem,8vw,6.9rem)] leading-[0.88] tracking-[-0.075em]">
-            Less talk.
+            Lock in.
             <br />
-            More <span className="hero-underline">follow-through.</span>
+            Or get <span className="hero-underline">exposed.</span>
           </h1>
 
           <p className="mt-8 max-w-xl text-lg leading-8 text-muted-foreground sm:text-xl">
-            Turn “we should do this” into a shared challenge. AI checks the
-            proof, the group keeps score, and Stripe makes missed commitments
-            real.
+            Your group chat talks big. We bring receipts. AI checks the proof,
+            ranks the squad, and makes every “trust me bro” painfully public.
           </p>
 
           <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -164,8 +167,11 @@ export default async function LandingPage() {
         </div>
 
         <div className="relative mx-auto w-full max-w-xl lg:mx-0">
+          <div className="chaos-sticker absolute -left-10 top-16 z-20 hidden -rotate-12 rounded-xl border-2 border-foreground bg-flame px-3 py-2 font-mono text-xs font-black uppercase text-flame-foreground shadow-[4px_4px_0_var(--foreground)] sm:block">
+            no cap
+          </div>
           <div className="absolute -right-6 -top-8 hidden rotate-6 rounded-full border-2 border-foreground bg-signal px-5 py-3 font-mono text-xs font-bold uppercase tracking-wider text-signal-foreground shadow-[4px_4px_0_var(--foreground)] sm:block">
-            Stakes make it stick
+            aura on the line
           </div>
 
           <div className="product-window relative rounded-[2rem] border-2 border-foreground bg-card p-3 shadow-[10px_12px_0_var(--foreground)] sm:p-4">
@@ -187,7 +193,7 @@ export default async function LandingPage() {
                     Today&apos;s challenge
                   </p>
                   <h2 className="mt-2 max-w-sm text-2xl leading-tight tracking-[-0.04em] sm:text-3xl">
-                    Ship one meaningful feature before 5:00 PM.
+                    Finish 10 push-ups before 5:00 PM.
                   </h2>
                 </div>
                 <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-signal text-signal-foreground">
@@ -258,7 +264,7 @@ export default async function LandingPage() {
             <div>
               <p className="text-xs font-bold">Proof accepted</p>
               <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground">
-                Agent found a valid project deploy.
+                10 clean reps. Aura restored.
               </p>
             </div>
           </div>
@@ -267,8 +273,8 @@ export default async function LandingPage() {
 
       <section className="border-y-2 border-foreground bg-signal text-signal-foreground">
         <div className="marquee-track flex min-w-max items-center py-3 font-mono text-xs font-bold uppercase tracking-[0.18em]">
-          {[0, 1].map((copy) => (
-            <div key={copy} className="flex items-center" aria-hidden={copy === 1}>
+          {Array.from({ length: 6 }, (_, copy) => (
+            <div key={copy} className="flex items-center" aria-hidden={copy !== 0}>
               {["Make the pact", "Show the work", "Keep your word"].map(
                 (item) => (
                   <span key={item} className="flex items-center">
@@ -282,16 +288,50 @@ export default async function LandingPage() {
         </div>
       </section>
 
+      <section className="relative mx-auto w-full max-w-7xl px-5 py-20 sm:px-8 lg:px-10 lg:py-28">
+        <div className="chaos-frame relative isolate overflow-hidden rounded-[2.25rem] border-2 border-foreground bg-foreground shadow-[10px_12px_0_var(--primary)]">
+          <Image
+            src="/accountability-chaos.jpg"
+            alt="Friends coding, filming proof, and completing a push-up challenge"
+            width={1800}
+            height={1125}
+            sizes="(max-width: 1280px) 100vw, 1200px"
+            className="h-[32rem] w-full object-cover object-center sm:h-[38rem]"
+          />
+          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/55 to-transparent px-6 pb-7 pt-32 text-white sm:px-10 sm:pb-10">
+            <p className="font-mono text-xs font-black uppercase tracking-[0.2em] text-[#c8ff38]">
+              live footage of the group chat locking in
+            </p>
+            <h2 className="mt-3 max-w-3xl text-4xl leading-[0.94] tracking-[-0.06em] sm:text-6xl">
+              Receipts or it didn&apos;t happen.
+            </h2>
+          </div>
+
+          <div className="chaos-sticker absolute left-5 top-5 flex -rotate-6 items-center gap-2 rounded-full border-2 border-black bg-[#c8ff38] px-4 py-2 font-mono text-xs font-black uppercase text-black shadow-[4px_4px_0_#000] sm:left-8 sm:top-8">
+            <Dumbbell className="size-4" />
+            10 reps detected
+          </div>
+          <div className="chaos-sticker absolute right-5 top-24 flex rotate-6 items-center gap-2 rounded-full border-2 border-black bg-[#8b5cf6] px-4 py-2 font-mono text-xs font-black uppercase text-white shadow-[4px_4px_0_#000] sm:right-8">
+            <Code2 className="size-4" />
+            accepted
+          </div>
+          <div className="chaos-sticker absolute right-7 top-1/2 hidden -rotate-3 items-center gap-2 rounded-xl border-2 border-black bg-white px-4 py-3 font-mono text-xs font-black uppercase text-black shadow-[4px_4px_0_#000] sm:flex">
+            <Camera className="size-4" />
+            caught in 4K
+          </div>
+        </div>
+      </section>
+
       <section className="mx-auto w-full max-w-7xl px-5 py-20 sm:px-8 lg:px-10 lg:py-28">
         <div className="grid gap-10 lg:grid-cols-[.75fr_1.25fr] lg:gap-20">
           <div>
             <p className="font-mono text-xs font-bold uppercase tracking-[0.16em] text-primary">
-              How it works
+              Zero yapping required
             </p>
             <h2 className="mt-4 text-4xl leading-[1.02] tracking-[-0.055em] sm:text-5xl">
               Your group chat,
               <br />
-              with a memory.
+              with consequences.
             </h2>
           </div>
 
@@ -320,11 +360,11 @@ export default async function LandingPage() {
         <div className="cta-panel relative overflow-hidden rounded-[2rem] border-2 border-foreground bg-primary px-6 py-12 text-primary-foreground shadow-[8px_8px_0_var(--foreground)] sm:px-12 sm:py-16">
           <div className="relative max-w-3xl">
             <div className="flex items-center gap-2 font-mono text-xs font-bold uppercase tracking-[0.15em] text-primary-foreground/70">
-              <LockKeyhole className="size-4" aria-hidden />
-              Auth0 identity · Stripe payments
+              <Zap className="size-4" aria-hidden />
+              Proof checked · excuses rejected
             </div>
             <h2 className="mt-5 text-4xl leading-[0.98] tracking-[-0.055em] sm:text-6xl">
-              Ready to stop letting each other off the hook?
+              The lore starts when somebody folds.
             </h2>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Button
@@ -332,7 +372,7 @@ export default async function LandingPage() {
                 className="rounded-xl bg-background text-foreground shadow-[4px_4px_0_var(--foreground)] hover:bg-background/90"
                 render={<Link href="/auth/login" />}
               >
-                Build your group
+                Start the group lore
                 <ArrowRight data-icon="inline-end" />
               </Button>
               <div className="flex items-center gap-2 px-2 text-sm text-primary-foreground/80">
