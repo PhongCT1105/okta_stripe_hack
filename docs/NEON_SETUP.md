@@ -11,7 +11,7 @@ deferred until the Vercel agent commits its Stripe Projects state.
 - `frontend/src/lib/db.ts` reads `DATABASE_URL` server-side.
 - `database/schema.sql` defines the initial application schema.
 
-## Provision after the Vercel work is committed
+## Provisioning
 
 Run these commands from the repository root:
 
@@ -30,22 +30,19 @@ stripe projects status
 stripe projects env
 ```
 
-The exact connection variable name is determined by the CLI. The application
-expects `DATABASE_URL`. If the generated key differs, bind or map it to
-`DATABASE_URL` through Stripe Projects or the deployment environment.
+Stripe Projects provides `DATABASE_CONNECTION_STRING`, which the application
+uses directly.
 
 ## Apply the schema
 
-Use the Neon SQL editor or `psql`:
+From `frontend/`, run:
 
 ```bash
-psql "$DATABASE_URL" -f database/schema.sql
+npm run db:migrate
 ```
 
 ## Still missing
 
-- Provision the Neon Free plan and Postgres resource.
-- Apply `database/schema.sql`.
 - Replace `frontend/src/lib/mock/store.ts` reads and writes with database
   queries.
 - Map the authenticated Auth0 subject to `users.auth0_id`.

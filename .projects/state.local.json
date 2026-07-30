@@ -88,6 +88,28 @@
       "resourceId": "fres_61V8OePqcgf0vskaz16Sv9FcAxSQ81irxl0t5PEroSue",
       "serviceId": "free"
     },
+    "database": {
+      "configuration": {},
+      "createdAt": "2026-07-30T22:46:18.477Z",
+      "lastRevealedAt": "2026-07-30T22:46:18.638Z",
+      "lastStatus": "complete",
+      "name": "database",
+      "providerId": "prvdr_61UH8uNXFdoJUJOtT54AC",
+      "providerName": "Neon",
+      "resourceId": "fres_61V8QfpicJEHMimcw16Sv9FcAxSQ81irxl0t5PEroAu0",
+      "serviceId": "postgres"
+    },
+    "neon-plan": {
+      "configuration": {},
+      "createdAt": "2026-07-30T22:46:11.732Z",
+      "lastRevealedAt": "2026-07-30T22:46:12.039Z",
+      "lastStatus": "complete",
+      "name": "neon-plan",
+      "providerId": "prvdr_61UH8uNXFdoJUJOtT54AC",
+      "providerName": "Neon",
+      "resourceId": "fres_61V8QfiXDw303KbSZ16Sv9FcAxSQ81irxl0t5PEroUxE",
+      "serviceId": "free"
+    },
     "vercel-app": {
       "configuration": {
         "name": "okta-stripe-hack"

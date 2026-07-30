@@ -25,6 +25,16 @@
       "providerName": "Auth0",
       "serviceId": "free"
     },
+    "database": {
+      "name": "database",
+      "providerName": "Neon",
+      "serviceId": "postgres"
+    },
+    "neon-plan": {
+      "name": "neon-plan",
+      "providerName": "Neon",
+      "serviceId": "free"
+    },
     "vercel-app": {
       "name": "vercel-app",
       "providerName": "Vercel",
@@ -45,6 +55,12 @@
         },
         {
           "resourceName": "auth0-plan"
+        },
+        {
+          "resourceName": "database"
+        },
+        {
+          "resourceName": "neon-plan"
         },
         {
           "resourceName": "vercel-app"
