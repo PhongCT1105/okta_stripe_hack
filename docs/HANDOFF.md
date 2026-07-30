@@ -1,8 +1,8 @@
-# Commitment Agent — Teammate Handoff
+# WIP AI — Teammate Handoff
 
 ## What We Are Building
 
-Commitment Agent is a multi-user accountability SaaS for friend groups.
+WIP AI is a multi-user accountability SaaS for friend groups.
 
 The MVP loop is:
 

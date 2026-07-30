@@ -23,9 +23,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Commitment Agent — Promises that stick",
+  title: "WIP AI — Do it or get WIPped",
   description:
-    "Turn group promises into shared challenges with AI-verified proof, visible streaks, and user-approved Stripe commitments.",
+    "Turn group promises into shared challenges. WIP AI verifies the proof, tracks the streak, and enforces the user-approved penalty.",
 };
 
 export default function RootLayout({
