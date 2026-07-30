@@ -1,8 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
 import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -40,6 +39,12 @@ export function ProfileForm({
     updateProfile,
     null,
   );
+
+  // Saving revalidates /profile, which streams a fresh `user` into this still
+  // mounted form. An uncontrolled checkbox can't accept a new default once it's
+  // initialized, so the selection lives here instead — seeded from the server
+  // on mount, owned by the client from then on.
+  const [interests, setInterests] = useState<string[]>(user.interests);
 
   // First-time setup exists to unblock the rest of the app, so send them on
   // the moment it succeeds rather than leaving them on a form with nothing
@@ -92,7 +97,14 @@ export function ProfileForm({
                 <Checkbox
                   name="interests"
                   value={option}
-                  defaultChecked={user.interests.includes(option)}
+                  checked={interests.includes(option)}
+                  onCheckedChange={(checked) =>
+                    setInterests((current) =>
+                      checked
+                        ? [...current, option]
+                        : current.filter((interest) => interest !== option),
+                    )
+                  }
                 />
                 {option}
               </label>
