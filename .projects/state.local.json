@@ -137,6 +137,7 @@
   },
   "managedProjectVariableEnvKeys": {
     ".env": [
+      "AUTH0_SECRET",
       "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
       "STRIPE_SECRET_KEY"
     ]
