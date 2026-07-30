@@ -67,7 +67,7 @@ export interface Submission {
   id: string;
   challengeId: string;
   userId: string;
-  /** Free text or a URL — image proof is a stretch goal. */
+  /** URL, OCR evidence, pose evidence, or free-text fallback. */
   proof: string;
   status: SubmissionStatus;
   /** The agent's plain-language justification. Shown verbatim to the user. */

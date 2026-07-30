@@ -30,9 +30,10 @@ The core product is a multi-user accountability SaaS. Linq/iMessage is a stretch
 
 ### Phase 3 — Accountability Loop
 
-- Add challenge creation.
+- Add the two MVP challenge types: one accepted LeetCode problem or 10 push-ups.
 - Add one optional AI-generated challenge.
-- Build proof submission using text or URL first.
+- Verify LeetCode using an accepted submission link or screenshot OCR.
+- Count push-ups from an uploaded video using pretrained pose landmarks.
 - Add structured agent evaluation.
 - Update streaks and leaderboard.
 - Include organizer override for demo recovery.
