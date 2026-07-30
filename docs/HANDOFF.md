@@ -55,28 +55,27 @@ Important: product data still uses the mutable in-memory store in
 
 ### Highest Priority
 
-1. Connect authenticated Auth0 users to application users.
-   - `getCurrentUser()` still returns seeded Phong.
-   - Protect app routes and enforce group membership/organizer authorization.
-   - Verify two distinct Auth0 users can join the same group.
-
-2. Add persistent storage.
+1. Add persistent storage. **This is the only thing blocking a usable deploy.**
    - Replace the arrays in `frontend/src/lib/mock/store.ts`.
-   - Persist users, groups, memberships, challenges, submissions, streaks, and payment requests.
+   - `database/schema.sql` matches the current domain model; Neon is
+     provisioned but nothing imports `frontend/src/lib/db.ts` yet.
+   - Step-by-step guide, invariants, and deploy checklist:
+     `docs/DATABASE_HANDOFF.md`.
 
-3. Finish Stripe payment persistence.
-   - Hosted Checkout and success-page Session verification are wired.
-   - The current credentials are live-mode credentials.
-   - Add a signed webhook after a webhook endpoint and signing secret exist.
-   - Persist the Checkout Session and paid state in the database.
+2. Finish Stripe payment persistence.
+   - Credit top-up and cash-out are wired, and Sessions are verified
+     server-side on the success routes.
+   - The current credentials are **test mode** (`sk_test`).
+   - Add a signed webhook after a webhook endpoint and signing secret exist;
+     until then the success routes are the confirmation mechanism.
    - Never let the agent charge automatically.
 
-4. Finish proof verification.
+3. Finish proof verification.
    - Confirm LeetCode OCR works with realistic screenshots.
    - Confirm MediaPipe counts 10 full push-ups from realistic side-view videos.
    - Add clear failure/retry states.
 
-5. Connect the orchestration model.
+4. Connect the orchestration model.
    - Integration point: `evaluateWithOrchestrationModel()` in
      `frontend/src/lib/agent.ts`.
    - Consume structured verifier evidence.
