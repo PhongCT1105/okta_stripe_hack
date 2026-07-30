@@ -1,7 +1,7 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ProfileForm } from "@/components/profile-form";
 import { getCurrentUser, isProfileComplete } from "@/lib/data";
-import { INTEREST_OPTIONS } from "@/lib/mock/store";
+import { INTEREST_OPTIONS } from "@/lib/data";
 
 /**
  * Profile setup and editing.
