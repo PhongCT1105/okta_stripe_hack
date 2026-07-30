@@ -3,6 +3,15 @@
   "providers": {
     "auth0": {
       "name": "Auth0"
+    },
+    "neon": {
+      "name": "Neon"
+    },
+    "openrouter": {
+      "name": "OpenRouter"
+    },
+    "vercel": {
+      "name": "Vercel"
     }
   },
   "resources": {
@@ -15,6 +24,16 @@
       "name": "auth0-plan",
       "providerName": "Auth0",
       "serviceId": "free"
+    },
+    "vercel-app": {
+      "name": "vercel-app",
+      "providerName": "Vercel",
+      "serviceId": "project"
+    },
+    "vercel-plan": {
+      "name": "vercel-plan",
+      "providerName": "Vercel",
+      "serviceId": "hobby"
     }
   },
   "environments": {
@@ -26,6 +45,12 @@
         },
         {
           "resourceName": "auth0-plan"
+        },
+        {
+          "resourceName": "vercel-app"
+        },
+        {
+          "resourceName": "vercel-plan"
         }
       ],
       "variables": [
