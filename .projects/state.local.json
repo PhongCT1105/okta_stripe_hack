@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "project": {
+    "initializedAt": "2026-07-30T20:35:53.229Z",
+    "merchantDisplayName": null,
+    "merchantId": "acct_1RllIGGVLMGqZXB7",
+    "projectId": "project_61V8Odd6BWU9eXM9I16Sv9FcAxSQ81irxl0t5PEroRey",
+    "projectName": "okta_stripe_hack"
+  },
+  "providers": {
+    "auth0": {
+      "accountRequestId": "facctrq_61V8OeJdg9PKPlUUK16Sv9FcAxSQ81irxl0t5PEroRFg",
+      "configuration": {
+        "locality": "us",
+        "naming_prefix": "paypalgang"
+      },
+      "linkedAt": "2026-07-30T20:36:40.650Z",
+      "providerId": "prvdr_61UVctyxfLOj4FpVw5Bmi",
+      "providerName": "Auth0",
+      "redirectUrl": null,
+      "requestedAt": "2026-07-30T20:36:40.650Z",
+      "status": "complete"
+    }
+  },
+  "resources": {
+    "auth0-client": {
+      "configuration": {
+        "name": "okta_stripe_hack",
+        "description": "Regular Web Application for the okta_stripe_hack Next.js app",
+        "app_type": "regular_web",
+        "callbacks": [
+          "http://localhost:3000/auth/callback"
+        ],
+        "allowed_logout_urls": [
+          "http://localhost:3000"
+        ],
+        "web_origins": [
+          "http://localhost:3000"
+        ]
+      },
+      "createdAt": "2026-07-30T20:36:48.063Z",
+      "lastRevealedAt": "2026-07-30T20:44:25.618Z",
+      "lastStatus": "complete",
+      "name": "auth0-client",
+      "providerId": "prvdr_61UVctyxfLOj4FpVw5Bmi",
+      "providerName": "Auth0",
+      "resourceId": "fres_61V8OeSoI2ETxR4kM16Sv9FcAxSQ81irxl0t5PEro4HA",
+      "serviceId": "client"
+    },
+    "auth0-plan": {
+      "configuration": {},
+      "createdAt": "2026-07-30T20:36:43.669Z",
+      "lastRevealedAt": "2026-07-30T20:36:43.888Z",
+      "lastStatus": "complete",
+      "name": "auth0-plan",
+      "providerId": "prvdr_61UVctyxfLOj4FpVw5Bmi",
+      "providerName": "Auth0",
+      "resourceId": "fres_61V8OePqcgf0vskaz16Sv9FcAxSQ81irxl0t5PEroSue",
+      "serviceId": "free"
+    }
+  }
+}
