@@ -16,5 +16,38 @@
       "providerName": "Auth0",
       "serviceId": "free"
     }
+  },
+  "environments": {
+    "default": {
+      "output": ".env",
+      "resources": [
+        {
+          "resourceName": "auth0-client"
+        },
+        {
+          "resourceName": "auth0-plan"
+        }
+      ],
+      "variables": [
+        {
+          "variableName": "stripe-publishable-key",
+          "envKey": "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY"
+        },
+        {
+          "variableName": "stripe-secret-key",
+          "envKey": "STRIPE_SECRET_KEY"
+        }
+      ]
+    }
+  },
+  "variables": {
+    "stripe-publishable-key": {
+      "name": "stripe-publishable-key",
+      "backendId": "fprjvar_61V8PyOMoCvolow1f16Sv9FcAxSQ81irxl0t5PEroBWy"
+    },
+    "stripe-secret-key": {
+      "name": "stripe-secret-key",
+      "backendId": "fprjvar_61V8PyNynaw0vgN8u16Sv9FcAxSQ81irxl0t5PEroVK4"
+    }
   }
 }

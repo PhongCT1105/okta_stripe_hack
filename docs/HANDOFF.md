@@ -43,7 +43,8 @@ Completed or scaffolded:
 - Push-up video/MediaPipe verification work in progress.
 - Deterministic agent verdict fallback.
 - Streak, score, leaderboard, missed state, and organizer override.
-- Payment-request and payment-success UI.
+- Stripe-hosted Checkout for commitment payments.
+- Server-side Checkout Session verification on the success route.
 - Seeded demo data for Phong, Alex, and Sam.
 - Architecture and hackathon-plan documentation.
 
@@ -63,11 +64,11 @@ Important: product data still uses the mutable in-memory store in
    - Replace the arrays in `frontend/src/lib/mock/store.ts`.
    - Persist users, groups, memberships, challenges, submissions, streaks, and payment requests.
 
-3. Implement real Stripe test Checkout.
-   - `confirmPayment()` currently marks a request paid locally.
-   - Create a Checkout Session server-side.
-   - Redirect to Stripe-hosted Checkout.
-   - Verify the success Session or add a signed webhook.
+3. Finish Stripe payment persistence.
+   - Hosted Checkout and success-page Session verification are wired.
+   - The current credentials are live-mode credentials.
+   - Add a signed webhook after a webhook endpoint and signing secret exist.
+   - Persist the Checkout Session and paid state in the database.
    - Never let the agent charge automatically.
 
 4. Finish proof verification.

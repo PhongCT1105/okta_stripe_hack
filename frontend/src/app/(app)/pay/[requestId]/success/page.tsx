@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, CircleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { formatMoney } from "@/lib/format";
 import { getGroup, getPaymentRequest } from "@/lib/data";
 import { challenges } from "@/lib/mock/store";
+import { verifyCommitmentCheckout } from "@/lib/stripe";
 
 /**
  * Post-payment confirmation.
@@ -16,16 +17,56 @@ import { challenges } from "@/lib/mock/store";
  */
 export default async function PaymentSuccessPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ requestId: string }>;
+  searchParams: Promise<{ session_id?: string }>;
 }) {
   const { requestId } = await params;
+  const { session_id: sessionId } = await searchParams;
 
   const request = await getPaymentRequest(requestId);
   if (!request) notFound();
 
   const challenge = challenges.find((c) => c.id === request.challengeId) ?? null;
   const group = challenge ? await getGroup(challenge.groupId) : null;
+  let verified = request.status === "paid";
+
+  if (!verified && sessionId && request.stripeCheckoutSessionId === sessionId) {
+    try {
+      verified = await verifyCommitmentCheckout(sessionId, request);
+      if (verified) request.status = "paid";
+    } catch (error) {
+      console.error("Unable to verify Stripe Checkout Session", {
+        requestId,
+        error: error instanceof Error ? error.message : "Unknown Stripe error",
+      });
+    }
+  }
+
+  if (!verified) {
+    return (
+      <div className="mx-auto flex max-w-lg flex-col gap-6">
+        <div className="rounded-3xl border border-border bg-card p-6 text-center sm:p-8">
+          <div className="mx-auto flex size-16 items-center justify-center rounded-full bg-pending/12 text-pending">
+            <CircleAlert aria-hidden className="size-9" />
+          </div>
+          <h1 className="mt-4 text-2xl">Payment not confirmed</h1>
+          <p className="mt-2 text-muted-foreground">
+            Stripe has not confirmed this payment. Return to the request and try
+            again.
+          </p>
+          <Button
+            size="xl"
+            className="mt-8 w-full"
+            render={<Link href={`/pay/${request.id}`} />}
+          >
+            Back to payment
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto flex max-w-lg flex-col gap-6">
