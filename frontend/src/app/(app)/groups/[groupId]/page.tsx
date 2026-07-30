@@ -101,7 +101,11 @@ export default async function GroupPage({
           messages={messages}
           members={members}
           currentUserId={user.id}
-          canSummon={!active}
+          summonLabel={
+            active
+              ? "Ask the agent how it's going"
+              : "Ask the agent for a challenge"
+          }
         />
 
         {entries.length > 0 ? (

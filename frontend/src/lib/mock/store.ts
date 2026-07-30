@@ -7,6 +7,7 @@ import type {
   PaymentRequest,
   Submission,
   User,
+  WalletEntry,
 } from "@/lib/types";
 
 /**
@@ -38,6 +39,21 @@ function minutesAgo(minutes: number): string {
 }
 
 export const CURRENT_USER_ID = "user_phong";
+
+/**
+ * Credits every new account starts with, in integer cents.
+ *
+ * Generous on purpose: nobody should have to reach for a card to find out
+ * whether the product is worth anything. Running dry is what sends them to
+ * Stripe, and by then they've felt the loop work.
+ *
+ * Granted credits are not cashable — only money that actually came in through
+ * Stripe can go back out through it.
+ */
+export const SIGNUP_GRANT_CENTS = 10_000;
+
+/** Credit packs offered at top-up, in integer cents. */
+export const TOP_UP_OPTIONS_CENTS = [2_000, 5_000, 10_000] as const;
 
 /**
  * Goal tags offered on the profile.
@@ -172,6 +188,21 @@ export const challengeParticipants: ChallengeParticipant[] = [];
 export const submissions: Submission[] = [];
 
 export const paymentRequests: PaymentRequest[] = [];
+
+/**
+ * Credit ledger.
+ *
+ * Seeded so the demo members already hold their signup grant — a brand new
+ * account gets one the moment it's created in getCurrentUser().
+ */
+export const walletEntries: WalletEntry[] = users.map((user, index) => ({
+  id: `wal_seed_${index + 1}`,
+  userId: user.id,
+  amountCents: SIGNUP_GRANT_CENTS,
+  kind: "signup_grant" as const,
+  memo: "Welcome credits",
+  createdAt: minutesAgo(120),
+}));
 
 /** Monotonic id source. Avoids Math.random so ids stay reproducible per run. */
 let idCounter = 0;

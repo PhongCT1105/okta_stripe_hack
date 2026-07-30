@@ -9,7 +9,14 @@ if (existsSync(projectsEnv)) {
 }
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  experimental: {
+    serverActions: {
+      // Proof submissions carry a handful of base64 JPEG frames sampled from
+      // the member's recording. Six frames at ~900px clear the 1MB default,
+      // and base64 adds a third on top of that.
+      bodySizeLimit: "8mb",
+    },
+  },
 };
 
 export default nextConfig;

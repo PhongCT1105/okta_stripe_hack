@@ -9,8 +9,10 @@ import {
   localDate,
   nextId,
   paymentRequests,
+  SIGNUP_GRANT_CENTS,
   submissions,
   users,
+  walletEntries,
 } from "@/lib/mock/store";
 import type {
   Challenge,
@@ -23,6 +25,7 @@ import type {
   Round,
   Submission,
   User,
+  WalletEntry,
 } from "@/lib/types";
 
 /**
@@ -33,7 +36,7 @@ import type {
  */
 
 /** Two-letter fallback shown when Auth0 gives us no avatar. */
-function initialsFor(name: string): string {
+export function initialsFor(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return "??";
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
@@ -69,10 +72,16 @@ export async function getCurrentUser(): Promise<User> {
     "Member";
 
   if (existing) {
-    // Profile details can change between logins; the id never does.
-    existing.displayName = displayName;
-    existing.initials = initialsFor(displayName);
+    // The avatar comes from Auth0 and nowhere else, so it always tracks the
+    // session. The name doesn't: /profile lets people rename themselves, and
+    // that edit is revalidated straight back through here — re-applying the
+    // Auth0 name on every read would silently undo it. Auth0 only seeds the
+    // name, and only until setup is finished and the store takes ownership.
     existing.avatarUrl = session.user.picture;
+    if (!isProfileComplete(existing)) {
+      existing.displayName = displayName;
+      existing.initials = initialsFor(displayName);
+    }
     return existing;
   }
 
@@ -87,7 +96,38 @@ export async function getCurrentUser(): Promise<User> {
     interests: [],
   };
   users.push(user);
+
+  // Granted at account creation rather than at first stake, so the balance is
+  // already real by the time they see it and nothing has to be "activated".
+  walletEntries.push({
+    id: nextId("wal"),
+    userId: user.id,
+    amountCents: SIGNUP_GRANT_CENTS,
+    kind: "signup_grant",
+    memo: "Welcome credits",
+    createdAt: new Date().toISOString(),
+  });
+
   return user;
+}
+
+/**
+ * What this member has left to lose, in integer cents.
+ *
+ * Summed from the ledger every time rather than cached, so it cannot disagree
+ * with the history that produced it.
+ */
+export async function getWalletBalance(userId: string): Promise<number> {
+  return walletEntries
+    .filter((entry) => entry.userId === userId)
+    .reduce((sum, entry) => sum + entry.amountCents, 0);
+}
+
+/** The member's credit history, newest first. */
+export async function getWalletEntries(userId: string): Promise<WalletEntry[]> {
+  return walletEntries
+    .filter((entry) => entry.userId === userId)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
 /**
@@ -319,4 +359,50 @@ export async function getLeaderboard(
       b.member.streak - a.member.streak ||
       a.user.displayName.localeCompare(b.user.displayName),
   );
+}
+
+/** A past top-up with however much of it is still refundable. */
+export interface RefundableTopUp {
+  paymentIntentId: string;
+  remainingCents: number;
+}
+
+/**
+ * Top-ups this member could still withdraw against, oldest first.
+ *
+ * Each purchase is netted against refunds already taken from it, so the same
+ * money can never be withdrawn twice — the ledger, not Stripe, is the record
+ * we reconcile against here.
+ */
+export async function getRefundableTopUps(
+  userId: string,
+): Promise<RefundableTopUp[]> {
+  const mine = walletEntries.filter((entry) => entry.userId === userId);
+
+  const refundedByIntent = new Map<string, number>();
+  for (const entry of mine) {
+    if (entry.kind !== "cash_out" || !entry.stripePaymentIntentId) continue;
+    refundedByIntent.set(
+      entry.stripePaymentIntentId,
+      (refundedByIntent.get(entry.stripePaymentIntentId) ?? 0) +
+        Math.abs(entry.amountCents),
+    );
+  }
+
+  return mine
+    .filter((entry) => entry.kind === "top_up" && entry.stripePaymentIntentId)
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+    .map((entry) => ({
+      paymentIntentId: entry.stripePaymentIntentId!,
+      remainingCents:
+        entry.amountCents -
+        (refundedByIntent.get(entry.stripePaymentIntentId!) ?? 0),
+    }))
+    .filter((source) => source.remainingCents > 0);
+}
+
+/** The most this member could cash out, ignoring their current balance. */
+export async function getRefundableCents(userId: string): Promise<number> {
+  const sources = await getRefundableTopUps(userId);
+  return sources.reduce((sum, source) => sum + source.remainingCents, 0);
 }

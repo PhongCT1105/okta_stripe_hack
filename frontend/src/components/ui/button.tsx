@@ -1,4 +1,3 @@
-import * as React from "react"
 import { Button as ButtonPrimitive } from "@base-ui/react/button"
 import { cva, type VariantProps } from "class-variance-authority"
 
@@ -54,14 +53,12 @@ function Button({
   return (
     <ButtonPrimitive
       data-slot="button"
-      // Base UI assumes `render` produces a native <button>. Most of ours render
-      // a Link, so infer it instead of repeating `nativeButton` at every call
-      // site. Pass it explicitly to override (e.g. a wrapper that emits <button>).
-      nativeButton={
-        React.isValidElement(props.render) ? props.render.type === "button" : undefined
-      }
       className={cn(buttonVariants({ variant, size, className }))}
       render={render}
+      // Base UI assumes `render` produces a native <button>. Most of ours render
+      // a Link or a label, so infer it instead of repeating `nativeButton` at
+      // every call site. Pass it explicitly to override — e.g. a wrapper that
+      // does emit a real <button>.
       nativeButton={nativeButton ?? !render}
       {...props}
     />
