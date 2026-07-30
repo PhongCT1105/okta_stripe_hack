@@ -54,10 +54,14 @@ Auth0 answers **who the user is**. The application database answers **which grou
 
 ### Submission Flow
 
-1. A member submits text, a URL, or an image reference as proof.
+1. A member submits a LeetCode URL/screenshot or a push-up video.
 2. The backend stores the submission with `pending` status.
-3. The accountability agent receives the challenge criteria and proof.
-4. The agent returns a structured decision:
+3. A challenge-specific verifier produces structured evidence:
+   - LeetCode URLs are restricted to submission-detail pages and checked for an accepted result.
+   - LeetCode screenshots are read with pretrained OCR and must show LeetCode plus `Accepted`.
+   - Push-up videos run through pretrained MediaPipe Pose Landmarker and a repetition state machine.
+4. The accountability orchestration model receives the challenge criteria and verifier evidence.
+5. The agent returns a structured decision:
 
 ```json
 {
@@ -67,8 +71,8 @@ Auth0 answers **who the user is**. The application database answers **which grou
 }
 ```
 
-5. The backend saves the decision and updates score or streak state.
-6. The UI refreshes the group leaderboard.
+6. The backend saves the decision and updates score or streak state.
+7. The UI refreshes the group leaderboard.
 
 For demo stability, an organizer can manually override the agent decision.
 
