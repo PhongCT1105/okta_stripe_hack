@@ -39,7 +39,7 @@ export async function AppHeader() {
         >
           <BrandMark />
           <span className="font-heading text-lg font-extrabold tracking-tight">
-            Commitment Agent
+            WIP AI
           </span>
         </Link>
 
