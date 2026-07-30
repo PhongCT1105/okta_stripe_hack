@@ -19,15 +19,68 @@ import type {
  * is a feature during rehearsal.
  */
 
+/**
+ * State that survives a hot reload.
+ *
+ * The dev server re-evaluates this module on every edit, and a plain `const`
+ * would be re-seeded each time — throwing away everything done since the last
+ * code change, including the profile a signed-in member just filled in, which
+ * then sends them back through setup. Parking the data on globalThis keeps one
+ * copy per server process, so editing the code no longer resets the demo.
+ */
+const globalCache = globalThis as typeof globalThis & {
+  __commitmentStore?: Record<string, unknown>;
+};
+
+function persistent<T>(key: string, seed: () => T): T {
+  const store = (globalCache.__commitmentStore ??= {});
+  if (!(key in store)) store[key] = seed();
+  return store[key] as T;
+}
+
+/**
+ * Demo clock.
+ *
+ * A challenge runs in daily rounds derived from the calendar, which means
+ * showing day two normally costs you a day of waiting. This offsets what the
+ * app believes "now" is, so the demo can step forward on command.
+ *
+ * It shifts the present rather than rewriting the challenge's start date: past
+ * submissions keep the round they were actually made in, and the new day starts
+ * genuinely empty — which is the thing worth showing.
+ */
+const demoClock = persistent("demoClock", () => ({ dayOffset: 0 }));
+
+export function getDemoDayOffset(): number {
+  return demoClock.dayOffset;
+}
+
+export function setDemoDayOffset(days: number): void {
+  demoClock.dayOffset = Math.max(0, Math.trunc(days));
+}
+
+/** What the app treats as the current moment, demo offset included. */
+export function now(): Date {
+  const d = new Date();
+  if (demoClock.dayOffset !== 0) d.setDate(d.getDate() + demoClock.dayOffset);
+  return d;
+}
+
 /** Today at a given hour, local time, as an ISO string. */
 export function todayAt(hour: number): string {
-  const d = new Date();
+  const d = now();
   d.setHours(hour, 0, 0, 0);
   return d.toISOString();
 }
 
-/** YYYY-MM-DD in local time. The round identifier used everywhere. */
-export function localDate(date: Date = new Date()): string {
+/**
+ * YYYY-MM-DD in local time. The round identifier used everywhere.
+ *
+ * Called with no argument it means "today", which the demo clock can move. An
+ * explicit date is left alone — shifting a date someone handed us would corrupt
+ * records rather than advance time.
+ */
+export function localDate(date: Date = now()): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
@@ -71,7 +124,7 @@ export const INTEREST_OPTIONS = [
   "Reading",
 ] as const;
 
-export const users: User[] = [
+export const users: User[] = persistent("users", () => [
   {
     id: "user_phong",
     auth0UserId: null,
@@ -96,18 +149,18 @@ export const users: User[] = [
     headline: "Trying to build one habit that actually sticks",
     interests: ["Interview prep", "Fitness"],
   },
-];
+]);
 
-export const groups: Group[] = [
+export const groups: Group[] = persistent("groups", () => [
   {
     id: "grp_builder",
     name: "30-Day Builder Challenge",
     inviteCode: "BUILD30",
     ownerId: "user_phong",
   },
-];
+]);
 
-export const groupMembers: GroupMember[] = [
+export const groupMembers: GroupMember[] = persistent("groupMembers", () => [
   {
     groupId: "grp_builder",
     userId: "user_phong",
@@ -129,7 +182,7 @@ export const groupMembers: GroupMember[] = [
     streak: 0,
     score: 45,
   },
-];
+]);
 
 /**
  * Seeded conversation.
@@ -138,7 +191,7 @@ export const groupMembers: GroupMember[] = [
  * an intent that never quite becomes a commitment. Summoning the agent turns it
  * into one — which is the whole demo.
  */
-export const chatMessages: ChatMessage[] = [
+export const chatMessages: ChatMessage[] = persistent("chatMessages", () => [
   {
     id: "msg_0001",
     groupId: "grp_builder",
@@ -179,15 +232,21 @@ export const chatMessages: ChatMessage[] = [
     body: "$5 a miss sounds about right. enough to hurt, not enough to ruin me",
     createdAt: minutesAgo(24),
   },
-];
+]);
 
-export const challenges: Challenge[] = [];
+export const challenges: Challenge[] = persistent("challenges", () => []);
 
-export const challengeParticipants: ChallengeParticipant[] = [];
+export const challengeParticipants: ChallengeParticipant[] = persistent(
+  "challengeParticipants",
+  () => [],
+);
 
-export const submissions: Submission[] = [];
+export const submissions: Submission[] = persistent("submissions", () => []);
 
-export const paymentRequests: PaymentRequest[] = [];
+export const paymentRequests: PaymentRequest[] = persistent(
+  "paymentRequests",
+  () => [],
+);
 
 /**
  * Credit ledger.
@@ -195,18 +254,26 @@ export const paymentRequests: PaymentRequest[] = [];
  * Seeded so the demo members already hold their signup grant — a brand new
  * account gets one the moment it's created in getCurrentUser().
  */
-export const walletEntries: WalletEntry[] = users.map((user, index) => ({
-  id: `wal_seed_${index + 1}`,
-  userId: user.id,
-  amountCents: SIGNUP_GRANT_CENTS,
-  kind: "signup_grant" as const,
-  memo: "Welcome credits",
-  createdAt: minutesAgo(120),
-}));
+export const walletEntries: WalletEntry[] = persistent("walletEntries", () =>
+  users.map((user, index) => ({
+    id: `wal_seed_${index + 1}`,
+    userId: user.id,
+    amountCents: SIGNUP_GRANT_CENTS,
+    kind: "signup_grant" as const,
+    memo: "Welcome credits",
+    createdAt: minutesAgo(120),
+  })),
+);
 
-/** Monotonic id source. Avoids Math.random so ids stay reproducible per run. */
-let idCounter = 0;
+/**
+ * Monotonic id source. Avoids Math.random so ids stay reproducible per run.
+ *
+ * Held in an object rather than a bare counter so it can ride along in the
+ * persistent cache — a counter that reset on reload would start handing out ids
+ * that already exist in the arrays above.
+ */
+const idCounter = persistent("idCounter", () => ({ value: 0 }));
 export function nextId(prefix: string): string {
-  idCounter += 1;
-  return `${prefix}_${idCounter.toString().padStart(4, "0")}`;
+  idCounter.value += 1;
+  return `${prefix}_${idCounter.value.toString().padStart(4, "0")}`;
 }

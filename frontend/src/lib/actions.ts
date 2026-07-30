@@ -22,11 +22,13 @@ import {
   challenges,
   chatMessages,
   groupMembers,
+  getDemoDayOffset,
   groups,
   INTEREST_OPTIONS,
   localDate,
   nextId,
   paymentRequests,
+  setDemoDayOffset,
   submissions,
   TOP_UP_OPTIONS_CENTS,
   users,
@@ -373,6 +375,57 @@ export async function joinChallenge(
   }
 
   revalidatePath(`/groups/${challenge.groupId}`);
+  return { ok: true };
+}
+
+/**
+ * Whether the demo clock controls are switched on.
+ *
+ * Off unless explicitly enabled, because moving time is not something a real
+ * deployment should offer — a member could skip past a deadline they were about
+ * to miss.
+ */
+export async function isDemoModeEnabled(): Promise<boolean> {
+  return process.env.DEMO_CONTROLS === "1";
+}
+
+/** Steps the demo clock forward one day. */
+export async function advanceDemoDay(
+  _prev: ActionResult | null,
+  formData: FormData,
+): Promise<ActionResult> {
+  if (!(await isDemoModeEnabled())) {
+    return { ok: false, error: "Demo controls are off." };
+  }
+
+  const groupId = String(formData.get("groupId") ?? "");
+  const user = await requireMember(groupId);
+  if (!user) return { ok: false, error: "You're not a member of this group." };
+
+  setDemoDayOffset(getDemoDayOffset() + 1);
+
+  revalidatePath(`/groups/${groupId}`);
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+/** Puts the demo clock back on real time. */
+export async function resetDemoDay(
+  _prev: ActionResult | null,
+  formData: FormData,
+): Promise<ActionResult> {
+  if (!(await isDemoModeEnabled())) {
+    return { ok: false, error: "Demo controls are off." };
+  }
+
+  const groupId = String(formData.get("groupId") ?? "");
+  const user = await requireMember(groupId);
+  if (!user) return { ok: false, error: "You're not a member of this group." };
+
+  setDemoDayOffset(0);
+
+  revalidatePath(`/groups/${groupId}`);
+  revalidatePath("/", "layout");
   return { ok: true };
 }
 
