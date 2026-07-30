@@ -1,58 +1,115 @@
-import { auth0 } from "@/lib/auth0";
+import { redirect } from "next/navigation";
+import Link from "next/link";
+import { CreditCard, Flame, ShieldCheck, Sparkles } from "lucide-react";
+import { getOptionalSession } from "@/lib/auth0";
+import { BrandMark } from "@/components/brand-mark";
+import { Button } from "@/components/ui/button";
 
-export default async function Home() {
-  const session = await auth0.getSession();
+const STEPS = [
+  {
+    Icon: Sparkles,
+    title: "Commit together",
+    body: "Set one shared daily challenge for the group, or let the agent pick one.",
+  },
+  {
+    Icon: ShieldCheck,
+    title: "Prove it",
+    body: "Submit a link or a note. The agent rules on it and explains why.",
+  },
+  {
+    Icon: CreditCard,
+    title: "Follow through",
+    body: "Miss it and you owe the group. You approve every payment yourself.",
+  },
+];
 
-  if (!session) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-zinc-950 px-6 text-zinc-50">
-        <section className="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-900 p-8">
-          <p className="mb-2 text-sm font-medium text-zinc-400">
-            okta_stripe_hack
-          </p>
-          <h1 className="text-3xl font-semibold tracking-tight">
-            Sign in to continue
-          </h1>
-          <div className="mt-8 flex gap-3">
-            <a
-              className="rounded-lg bg-white px-4 py-2.5 font-medium text-zinc-950"
-              href="/auth/login"
-            >
-              Log in
-            </a>
-            <a
-              className="rounded-lg border border-zinc-700 px-4 py-2.5 font-medium"
-              href="/auth/login?screen_hint=signup"
-            >
-              Sign up
-            </a>
-          </div>
-        </section>
-      </main>
-    );
+/**
+ * Rendered per request, never prerendered: the response depends on whether the
+ * visitor has a session, which isn't knowable at build time.
+ */
+export const dynamic = "force-dynamic";
+
+export default async function LandingPage() {
+  // Null until Auth0 credentials are provisioned, so the landing page still
+  // renders during development. Signed-in users skip straight to their groups.
+  const session = await getOptionalSession();
+
+  if (session) {
+    redirect("/groups");
   }
 
   return (
-    <main className="min-h-screen bg-zinc-950 px-6 py-16 text-zinc-50">
-      <section className="mx-auto max-w-2xl">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm text-zinc-400">Authenticated as</p>
-            <h1 className="mt-1 text-2xl font-semibold">
-              {session.user.email ?? session.user.name}
+    <main className="flex flex-1 flex-col">
+      <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col px-4 py-6 sm:px-6">
+        <header className="flex items-center gap-2.5">
+          <BrandMark />
+          <span className="font-heading text-lg font-extrabold tracking-tight">
+            Commitment Agent
+          </span>
+        </header>
+
+        <section className="flex flex-1 flex-col justify-center py-12 sm:py-20">
+          <div className="max-w-2xl">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-flame/12 px-3 py-1 text-sm font-bold text-flame">
+              <Flame aria-hidden className="size-4" />
+              Accountability that actually costs something
+            </span>
+
+            <h1 className="mt-5 text-4xl leading-[1.05] sm:text-6xl">
+              Your group chat forgets.
+              <br />
+              <span className="text-primary">This doesn&apos;t.</span>
             </h1>
+
+            <p className="mt-5 max-w-prose text-lg leading-relaxed text-muted-foreground">
+              Make a daily commitment with your friends. An AI agent checks the
+              proof, keeps the leaderboard honest, and turns a missed day into a
+              real payment — one you approve yourself.
+            </p>
+
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <Button size="xl" render={<Link href="/auth/login" />}>
+                <ShieldCheck data-icon="inline-start" />
+                Continue with Auth0
+              </Button>
+              <Button
+                size="xl"
+                variant="ghost"
+                render={<Link href="/join/BUILD30" />}
+              >
+                I have an invite code
+              </Button>
+            </div>
+
+            <p className="mt-4 text-xs text-muted-foreground">
+              Payments run in Stripe test mode. Nothing is charged without your
+              explicit approval.
+            </p>
           </div>
-          <a
-            className="rounded-lg border border-zinc-700 px-4 py-2 font-medium"
-            href="/auth/logout"
-          >
-            Log out
-          </a>
-        </div>
-        <pre className="mt-8 overflow-x-auto rounded-xl border border-zinc-800 bg-zinc-900 p-5 text-sm text-zinc-300">
-          {JSON.stringify(session.user, null, 2)}
-        </pre>
-      </section>
+        </section>
+
+        <section className="grid gap-4 pb-12 sm:grid-cols-3">
+          {STEPS.map(({ Icon, title, body }, index) => (
+            <div
+              key={title}
+              className="rounded-3xl border border-border/70 bg-card p-5"
+            >
+              <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <Icon aria-hidden className="size-5" />
+              </div>
+              <h2 className="mt-4 flex items-baseline gap-2 text-lg">
+                <span className="numeric text-sm text-muted-foreground">
+                  0{index + 1}
+                </span>
+                {title}
+              </h2>
+              <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+                {body}
+              </p>
+            </div>
+          ))}
+        </section>
+      </div>
     </main>
   );
 }
