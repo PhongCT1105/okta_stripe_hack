@@ -1,4 +1,4 @@
-# Commitment Agent
+# WIP AI
 
 An AI accountability SaaS for friend groups. Members create shared challenges, commit to consequences, submit proof, and track progress together. Auth0 verifies every participant, while Stripe handles subscriptions and user-approved commitment payments.
 
@@ -10,7 +10,7 @@ Friends often make goals together, but reminders disappear in group chats and th
 
 ## Solution
 
-Commitment Agent gives each friend group a shared challenge dashboard and an AI accountability agent that:
+WIP AI gives each friend group a shared challenge dashboard and an AI accountability agent that:
 
 - creates or recommends daily challenges;
 - tracks submissions and streaks;
@@ -221,7 +221,7 @@ Never commit `.env`, `.env.local`, or `.projects/vault/`.
 
 ## Demo Pitch
 
-> Commitment Agent is an authenticated accountability partner for friend groups. It creates shared challenges, verifies progress, maintains the leaderboard, and turns missed commitments into user-approved Stripe payments. Auth0 guarantees that every action belongs to the correct person, while Stripe makes the financial commitment real.
+> WIP AI is an authenticated accountability partner for friend groups: do the commitment or get WIPped with the penalty you approved. It creates shared challenges, verifies progress, maintains the leaderboard, and turns missed commitments into user-approved Stripe payments. Auth0 guarantees that every action belongs to the correct person, while Stripe makes the financial commitment real.
 
 ## Documentation
 

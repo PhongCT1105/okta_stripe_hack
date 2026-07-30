@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/card";
 import { isDemoModeEnabled } from "@/lib/actions";
 import { MEMBERS_REQUIRED_TO_START } from "@/lib/config";
-import { getDemoDayOffset } from "@/lib/mock/store";
+import { getDemoDayOffset } from "@/lib/demo-clock";
 import {
   getActiveChallenge,
   getChatMessages,

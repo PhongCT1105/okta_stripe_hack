@@ -6,7 +6,7 @@
 
 ---
 
-**Project:** Commitment Agent
+**Project:** WIP AI
 **Generated:** 2026-07-30 14:34:51
 **Category:** Conference / Symposium Landing Page
 **Design Dials:** Variance 6/10 (Balanced / Modern) | Motion 4/10 (Standard) | Density 3/10 (Spacious)

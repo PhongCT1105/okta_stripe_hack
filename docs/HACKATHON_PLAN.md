@@ -113,7 +113,7 @@ This creates an immediate reason to show the agent decision, leaderboard, and St
 
 ### Opening
 
-> Friends make commitments in group chats, but there is no shared system that remembers, verifies, and follows through. Commitment Agent turns those promises into authenticated challenges with real, user-approved financial accountability.
+> Friends make commitments in group chats, but there is no shared system that remembers, verifies, and follows through. WIP AI turns those promises into authenticated challenges with real, user-approved financial accountability.
 
 ### Walkthrough
 

@@ -1,5 +1,5 @@
 /**
- * Domain types for Commitment Agent.
+ * Domain types for WIP AI.
  *
  * These mirror the data model in the project README so the mock layer can be
  * swapped for a real database without touching a single component.

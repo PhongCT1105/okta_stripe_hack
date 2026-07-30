@@ -1,14 +1,14 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import {
-  challengeParticipants,
-  challenges,
+  getActiveChallenge,
+  getParticipants,
+  getProposedChallenge,
+  getUsers,
   INTEREST_OPTIONS,
   localDate,
-  nextId,
-  paymentRequests,
-  submissions,
-  users,
-} from "@/lib/mock/store";
+} from "@/lib/data";
+import { db } from "@/lib/db";
+import { replaceProposal, updateUserProfile } from "@/lib/repository";
 import type { Challenge } from "@/lib/types";
 
 /**
@@ -162,10 +162,9 @@ export const AGENT_TOOLS: Anthropic.Tool[] = [
   },
 ];
 
-function describeChallenge(challenge: Challenge): string {
-  const participants = challengeParticipants.filter(
-    (p) => p.challengeId === challenge.id,
-  );
+async function describeChallenge(challenge: Challenge): Promise<string> {
+  const participants = await getParticipants(challenge.id);
+  const users = await getUsers();
   const staked = participants
     .map((p) => {
       const name = users.find((u) => u.id === p.userId)?.displayName ?? "Someone";
@@ -195,18 +194,13 @@ export async function runAgentTool(
   input: Record<string, unknown>,
   ctx: AgentToolContext,
 ): Promise<ToolOutcome> {
-  const active = challenges.find(
-    (c) => c.groupId === ctx.groupId && c.status === "active",
-  );
-  const proposed = challenges.find(
-    (c) => c.groupId === ctx.groupId && c.status === "proposed",
-  );
+  const active = await getActiveChallenge(ctx.groupId);
+  const proposed = await getProposedChallenge(ctx.groupId);
+  const users = await getUsers();
 
   switch (name) {
     case "get_group_state": {
-      const members = users.filter((u) =>
-        challengeParticipants.some((p) => p.userId === u.id),
-      );
+      const members = active ? await getParticipants(active.id) : [];
       const roster = users
         .map((u) => {
           const goal = u.headline ? ` — goal: ${u.headline}` : "";
@@ -214,32 +208,19 @@ export async function runAgentTool(
         })
         .join("\n");
 
-      const today = localDate();
-      const todaySubmissions = active
-        ? submissions
-            .filter((s) => s.challengeId === active.id && s.roundDate === today)
-            .map((s) => {
-              const name =
-                users.find((u) => u.id === s.userId)?.displayName ?? "Someone";
-              return `${name}: ${s.status}`;
-            })
-            .join(", ")
-        : "";
-
-      const owed = paymentRequests
-        .filter((p) => p.status === "pending")
-        .reduce((sum, p) => sum + p.amountCents, 0);
+      const [{ owed }] = await db()`SELECT coalesce(sum(p.amount_cents),0)::int owed
+        FROM payment_requests p JOIN challenges c ON c.id=p.challenge_id
+        WHERE c.group_id=${ctx.groupId} AND p.status='pending'`;
 
       return {
         result: [
           active
-            ? `ACTIVE CHALLENGE:\n${describeChallenge(active)}`
+            ? `ACTIVE CHALLENGE:\n${await describeChallenge(active)}`
             : "No challenge is running.",
           proposed
-            ? `OUTSTANDING PROPOSAL:\n${describeChallenge(proposed)}`
+            ? `OUTSTANDING PROPOSAL:\n${await describeChallenge(proposed)}`
             : "No proposal is outstanding.",
           `MEMBERS:\n${roster}`,
-          todaySubmissions ? `TODAY'S SUBMISSIONS: ${todaySubmissions}` : "",
           `UNPAID COMMITMENTS: $${(owed / 100).toFixed(2)}`,
           `Members staked on something right now: ${members.length}`,
         ]
@@ -272,8 +253,7 @@ export async function runAgentTool(
       const dueAt = new Date();
       dueAt.setHours(dueHour, 0, 0, 0);
 
-      const challenge: Challenge = {
-        id: nextId("chl"),
+      const challenge = await replaceProposal({
         groupId: ctx.groupId,
         title: alignTitleWithVerifier(title, description),
         description,
@@ -285,8 +265,7 @@ export async function runAgentTool(
         commitmentAmountCents: clamp(input.suggestedStakeDollars, 0, 100, 5) * 100,
         agentGenerated: true,
         rationale: String(input.rationale ?? "").trim() || null,
-      };
-      challenges.push(challenge);
+      });
 
       return {
         result: `Proposed "${challenge.title}". It's now waiting for members to stake on it.`,
@@ -303,34 +282,36 @@ export async function runAgentTool(
         };
       }
 
+      const revised = { ...proposed };
       if (input.title !== undefined) {
-        proposed.title = alignTitleWithVerifier(
+        revised.title = alignTitleWithVerifier(
           String(input.title).trim(),
-          proposed.description,
+          revised.description,
         );
       }
       if (input.description !== undefined) {
-        proposed.description = String(input.description).trim();
+        revised.description = String(input.description).trim();
       }
       if (input.durationDays !== undefined) {
-        proposed.durationDays = clamp(input.durationDays, 1, 30, proposed.durationDays);
+        revised.durationDays = clamp(input.durationDays, 1, 30, revised.durationDays);
       }
       if (input.suggestedStakeDollars !== undefined) {
-        proposed.commitmentAmountCents =
+        revised.commitmentAmountCents =
           clamp(input.suggestedStakeDollars, 0, 100, 5) * 100;
       }
       if (input.dueHour !== undefined) {
-        proposed.dueHour = clamp(input.dueHour, 0, 23, proposed.dueHour);
+        revised.dueHour = clamp(input.dueHour, 0, 23, revised.dueHour);
         const dueAt = new Date();
-        dueAt.setHours(proposed.dueHour, 0, 0, 0);
-        proposed.dueAt = dueAt.toISOString();
+        dueAt.setHours(revised.dueHour, 0, 0, 0);
+        revised.dueAt = dueAt.toISOString();
       }
       if (input.rationale !== undefined) {
-        proposed.rationale = String(input.rationale).trim() || proposed.rationale;
+        revised.rationale = String(input.rationale).trim() || revised.rationale;
       }
+      await replaceProposal({ ...revised, id: undefined } as Omit<Challenge, "id">);
 
       return {
-        result: `Revised the proposal:\n${describeChallenge(proposed)}`,
+        result: `Revised the proposal:\n${await describeChallenge(revised)}`,
         changed: true,
       };
     }
@@ -340,13 +321,7 @@ export async function runAgentTool(
         return { result: "Refused: there's no outstanding proposal to withdraw." };
       }
 
-      const index = challenges.indexOf(proposed);
-      challenges.splice(index, 1);
-      for (let i = challengeParticipants.length - 1; i >= 0; i -= 1) {
-        if (challengeParticipants[i].challengeId === proposed.id) {
-          challengeParticipants.splice(i, 1);
-        }
-      }
+      await db()`DELETE FROM challenges WHERE id=${proposed.id} AND status='proposed'`;
 
       return {
         result: `Withdrew the proposal. Reason given: ${String(input.reason ?? "none")}`,
@@ -370,6 +345,7 @@ export async function runAgentTool(
           .filter((value) => INTEREST_OPTIONS.includes(value as never));
       }
 
+      await updateUserProfile(user.id, user.displayName, user.headline ?? "", user.interests);
       return {
         result: `Updated ${user.displayName}'s profile. Goal: ${user.headline ?? "unset"}. Interests: ${user.interests.join(", ") || "none"}.`,
         changed: true,

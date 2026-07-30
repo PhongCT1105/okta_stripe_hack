@@ -72,11 +72,11 @@ export default async function LandingPage() {
         <Link
           href="/"
           className="flex min-h-11 items-center gap-3 rounded-xl focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-          aria-label="Commitment Agent home"
+          aria-label="WIP AI home"
         >
           <BrandMark className="rounded-lg shadow-[3px_3px_0_var(--foreground)]" />
           <span className="font-heading text-base font-bold tracking-[-0.03em]">
-            Commitment Agent
+            WIP AI
           </span>
         </Link>
 
@@ -92,7 +92,7 @@ export default async function LandingPage() {
           <Button
             size="lg"
             className="rounded-xl px-4 shadow-[3px_3px_0_var(--foreground)] hover:-translate-y-0.5 hover:bg-primary active:translate-y-px"
-            render={<Link href="/auth/login" />}
+            render={<a href="/auth/login" />}
           >
             Sign in
             <ArrowRight data-icon="inline-end" />
@@ -107,7 +107,7 @@ export default async function LandingPage() {
             className="h-8 gap-2 rounded-full border-foreground/20 bg-background/70 px-3 font-mono text-[11px] uppercase tracking-[0.12em] backdrop-blur"
           >
             <span className="size-2 rounded-full bg-verified" aria-hidden />
-            Delusion ends here
+            Do it or get WIPped
           </Badge>
 
           <h1 className="mt-7 max-w-3xl text-[clamp(3.4rem,8vw,6.9rem)] leading-[0.88] tracking-[-0.075em]">
@@ -117,15 +117,15 @@ export default async function LandingPage() {
           </h1>
 
           <p className="mt-8 max-w-xl text-lg leading-8 text-muted-foreground sm:text-xl">
-            Your group chat talks big. We bring receipts. AI checks the proof,
-            ranks the squad, and makes every “trust me bro” painfully public.
+            Your group chat talks big. WIP AI brings receipts. Do the
+            commitment or take the penalty—AI checks the proof and keeps score.
           </p>
 
           <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
             <Button
               size="xl"
               className="rounded-xl shadow-[4px_4px_0_var(--foreground)] transition-transform hover:-translate-y-1 hover:bg-primary active:translate-y-px"
-              render={<Link href="/auth/login" />}
+              render={<a href="/auth/login" />}
             >
               Start a challenge
               <ArrowRight data-icon="inline-end" />
@@ -370,7 +370,7 @@ export default async function LandingPage() {
               <Button
                 size="xl"
                 className="rounded-xl bg-background text-foreground shadow-[4px_4px_0_var(--foreground)] hover:bg-background/90"
-                render={<Link href="/auth/login" />}
+                render={<a href="/auth/login" />}
               >
                 Start the group lore
                 <ArrowRight data-icon="inline-end" />
@@ -388,7 +388,7 @@ export default async function LandingPage() {
         <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-5 py-8 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-8 lg:px-10">
           <div className="flex items-center gap-2 text-foreground">
             <BrandMark className="size-7 rounded-md" />
-            <span className="font-heading font-bold">Commitment Agent</span>
+            <span className="font-heading font-bold">WIP AI</span>
           </div>
           <p>Make the promise. Show the proof. Keep the streak.</p>
         </div>

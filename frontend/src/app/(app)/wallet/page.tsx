@@ -9,7 +9,7 @@ import {
   getWalletBalance,
   getWalletEntries,
 } from "@/lib/data";
-import { TOP_UP_OPTIONS_CENTS } from "@/lib/mock/store";
+import { TOP_UP_OPTIONS_CENTS } from "@/lib/data";
 import type { WalletEntryKind } from "@/lib/types";
 
 const ENTRY_STYLE: Record<

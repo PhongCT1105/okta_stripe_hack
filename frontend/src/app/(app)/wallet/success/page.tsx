@@ -4,7 +4,7 @@ import { RefreshOnMount } from "@/components/refresh-on-mount";
 import { Button } from "@/components/ui/button";
 import { formatMoney } from "@/lib/format";
 import { getCurrentUser, getWalletBalance } from "@/lib/data";
-import { nextId, walletEntries } from "@/lib/mock/store";
+import { getWalletEntryByCheckout, recordWalletEntry } from "@/lib/repository";
 import { verifyTopUpCheckout } from "@/lib/stripe";
 
 /**
@@ -26,23 +26,19 @@ export default async function TopUpSuccessPage({
   let creditedCents: number | null = null;
 
   if (sessionId) {
-    const already = walletEntries.find(
-      (entry) => entry.stripeCheckoutSessionId === sessionId,
-    );
+    const already = await getWalletEntryByCheckout(sessionId);
 
-    if (already) {
-      creditedCents = already.amountCents;
+    if (already !== null) {
+      creditedCents = already;
     } else {
       try {
         const verified = await verifyTopUpCheckout(sessionId, user.id);
         if (verified) {
-          walletEntries.push({
-            id: nextId("wal"),
+          await recordWalletEntry({
             userId: user.id,
             amountCents: verified.creditCents,
             kind: "top_up",
             memo: "Credits purchased",
-            createdAt: new Date().toISOString(),
             stripeCheckoutSessionId: sessionId,
             // Recorded now so a later cash-out knows which payment to refund.
             stripePaymentIntentId: verified.paymentIntentId,

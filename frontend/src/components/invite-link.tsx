@@ -31,10 +31,10 @@ export function InviteLink({ inviteCode }: { inviteCode: string }) {
   }
 
   async function share() {
-    const message = `Join my accountability group on Commitment Agent: ${url}`;
+    const message = `Join my accountability group on WIP AI: ${url}`;
     if (typeof navigator !== "undefined" && "share" in navigator) {
       try {
-        await navigator.share({ title: "Commitment Agent", text: message, url });
+        await navigator.share({ title: "WIP AI", text: message, url });
         return;
       } catch {
         // The user dismissed the share sheet; fall through to copying.
