@@ -1,6 +1,100 @@
 import { Auth0Client } from "@auth0/nextjs-auth0/server";
 
-export const auth0 = new Auth0Client();
+const AUTH0_CREDENTIAL_KEYS = [
+  "AUTH0_DOMAIN",
+  "AUTH0_CLIENT_ID",
+  "AUTH0_CLIENT_SECRET",
+  "AUTH0_SECRET",
+] as const;
+
+function validateAppBaseUrl(value: string): string {
+  let url: URL;
+
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error("APP_BASE_URL must be a single absolute URL.");
+  }
+
+  const isLocalHttp =
+    url.protocol === "http:" &&
+    (url.hostname === "localhost" || url.hostname === "127.0.0.1");
+
+  if (url.protocol !== "https:" && !isLocalHttp) {
+    throw new Error(
+      "APP_BASE_URL must use HTTPS except for localhost development.",
+    );
+  }
+
+  if (
+    url.username ||
+    url.password ||
+    url.pathname !== "/" ||
+    url.search ||
+    url.hash
+  ) {
+    throw new Error(
+      "APP_BASE_URL must contain only the application origin, without credentials, a path, query, or fragment.",
+    );
+  }
+
+  return url.origin;
+}
+
+export function validateAuth0Configuration() {
+  const presentKeys = AUTH0_CREDENTIAL_KEYS.filter(
+    (key) => process.env[key]?.trim(),
+  );
+
+  if (
+    presentKeys.length > 0 &&
+    presentKeys.length !== AUTH0_CREDENTIAL_KEYS.length
+  ) {
+    const missingKeys = AUTH0_CREDENTIAL_KEYS.filter(
+      (key) => !process.env[key]?.trim(),
+    );
+    throw new Error(
+      `Auth0 configuration is incomplete. Missing: ${missingKeys.join(", ")}.`,
+    );
+  }
+
+  const configuredBaseUrl = process.env.APP_BASE_URL?.trim();
+  if (configuredBaseUrl) validateAppBaseUrl(configuredBaseUrl);
+
+  if (
+    process.env.NODE_ENV === "production" &&
+    process.env.VERCEL_ENV !== "preview" &&
+    process.env.VERCEL_ENV !== "development" &&
+    !configuredBaseUrl
+  ) {
+    throw new Error(
+      "APP_BASE_URL is required for production. Set it to the canonical HTTPS application origin.",
+    );
+  }
+
+  if (
+    process.env.NODE_ENV === "production" &&
+    presentKeys.length !== AUTH0_CREDENTIAL_KEYS.length
+  ) {
+    throw new Error(
+      `Auth0 is not configured. Set ${AUTH0_CREDENTIAL_KEYS.join(", ")} before deploying.`,
+    );
+  }
+
+  return {
+    configured: presentKeys.length === AUTH0_CREDENTIAL_KEYS.length,
+    appBaseUrl: configuredBaseUrl
+      ? validateAppBaseUrl(configuredBaseUrl)
+      : undefined,
+  };
+}
+
+const configuration = validateAuth0Configuration();
+
+export const auth0 = new Auth0Client({
+  appBaseUrl: configuration.appBaseUrl,
+  enableAccessTokenEndpoint: false,
+});
 
 /**
  * Whether Auth0 credentials are present.
@@ -11,7 +105,7 @@ export const auth0 = new Auth0Client();
  * auth at all.
  */
 export const isAuth0Configured = Boolean(
-  process.env.AUTH0_DOMAIN && process.env.AUTH0_CLIENT_ID,
+  configuration.configured,
 );
 
 /**
@@ -27,11 +121,6 @@ export const isAuth0Configured = Boolean(
  */
 export async function getOptionalSession() {
   if (!isAuth0Configured) {
-    if (process.env.NODE_ENV === "production") {
-      throw new Error(
-        "Auth0 is not configured. Set AUTH0_DOMAIN, AUTH0_CLIENT_ID, AUTH0_CLIENT_SECRET and AUTH0_SECRET before deploying.",
-      );
-    }
     return null;
   }
 

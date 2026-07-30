@@ -1,4 +1,35 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+This is a Next.js 16 application using `@auth0/nextjs-auth0` v4.
+
+## Auth0 configuration
+
+The Auth0 client must be a Regular Web Application. Configure these server-only
+environment variables in every deployed environment:
+
+```text
+AUTH0_DOMAIN
+AUTH0_CLIENT_ID
+AUTH0_CLIENT_SECRET
+AUTH0_SECRET
+```
+
+Set `APP_BASE_URL=https://okta-stripe-hack.vercel.app` in production. Use
+`APP_BASE_URL=http://localhost:3000` locally. Omit `APP_BASE_URL` in Vercel
+preview deployments so the SDK derives the preview origin from the request.
+
+Allowed Auth0 URLs:
+
+```text
+Callback: http://localhost:3000/auth/callback
+Callback: https://okta-stripe-hack.vercel.app/auth/callback
+Logout:   http://localhost:3000
+Logout:   https://okta-stripe-hack.vercel.app
+Origin:   http://localhost:3000
+Origin:   https://okta-stripe-hack.vercel.app
+```
+
+Preview deployments also require their exact generated callback, logout, and
+web-origin URLs to be registered in Auth0. Do not use a tenant-wide
+`*.vercel.app` wildcard: it permits unrelated Vercel projects.
 
 ## Getting Started
 
