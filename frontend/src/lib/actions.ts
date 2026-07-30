@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { evaluateProof } from "@/lib/agent";
+import { MEMBERS_REQUIRED_TO_START } from "@/lib/config";
 import { runAgentTurn } from "@/lib/chat-agent";
 import {
   getActiveChallenge,
@@ -61,18 +62,6 @@ export interface VerdictResult extends ActionResult {
   /** Present when the verdict created a payment request. */
   paymentRequestId?: string;
 }
-
-/**
- * How many members must stake before a proposal becomes a live challenge.
- *
- * Two by default, because a commitment nobody else made isn't accountability.
- * Overridable so one person can walk the whole loop — stake, miss, pay — while
- * testing, without needing a second identity just to reach the pay screen.
- */
-const MEMBERS_REQUIRED_TO_START = Math.max(
-  1,
-  Number(process.env.MEMBERS_REQUIRED_TO_START) || 2,
-);
 
 /**
  * Resolves the caller and confirms they belong to the group.

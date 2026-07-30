@@ -14,6 +14,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { isDemoModeEnabled } from "@/lib/actions";
+import { MEMBERS_REQUIRED_TO_START } from "@/lib/config";
 import { getDemoDayOffset } from "@/lib/mock/store";
 import {
   getActiveChallenge,
@@ -27,9 +28,6 @@ import {
   getProposedChallenge,
   getStakeSummary,
 } from "@/lib/data";
-
-/** Members must start a challenge before it binds anyone. Keep in sync with actions.ts. */
-const MEMBERS_REQUIRED_TO_START = 2;
 
 /** The group dashboard — the screen the demo spends most of its time on. */
 export default async function GroupPage({
