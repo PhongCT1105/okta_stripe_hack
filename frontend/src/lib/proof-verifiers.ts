@@ -1,5 +1,7 @@
 "use client";
 
+import { seek } from "@/lib/media-frames";
+
 export interface PushUpEvidence {
   count: number;
   analyzedFrames: number;
@@ -21,26 +23,6 @@ function angle(
   let degrees = Math.abs(((ab - cb) * 180) / Math.PI);
   if (degrees > 180) degrees = 360 - degrees;
   return degrees;
-}
-
-function seek(video: HTMLVideoElement, time: number) {
-  return new Promise<void>((resolve, reject) => {
-    const onSeeked = () => {
-      cleanup();
-      resolve();
-    };
-    const onError = () => {
-      cleanup();
-      reject(new Error("Could not read this video."));
-    };
-    const cleanup = () => {
-      video.removeEventListener("seeked", onSeeked);
-      video.removeEventListener("error", onError);
-    };
-    video.addEventListener("seeked", onSeeked, { once: true });
-    video.addEventListener("error", onError, { once: true });
-    video.currentTime = time;
-  });
 }
 
 export async function countPushUps(

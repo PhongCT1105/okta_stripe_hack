@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { evaluateProof } from "@/lib/agent";
-import { proposeChallenge } from "@/lib/chat-agent";
+import { runAgentTurn } from "@/lib/chat-agent";
 import {
   getActiveChallenge,
   getChallenge,
@@ -14,17 +14,28 @@ import {
   getMembership,
   getParticipant,
   getPaymentRequest,
+  getProposedChallenge,
   getUsers,
+  getRefundableCents,
+  getRefundableTopUps,
+  getWalletBalance,
+  isProfileComplete,
   INTEREST_OPTIONS,
   localDate,
+  TOP_UP_OPTIONS_CENTS,
 } from "@/lib/data";
 import {
   activateChallenge, createGroupRecord, insertMessage, joinGroupRecord,
   overrideSubmission, persistVerdict, removeParticipant,
-  replaceProposal, setCheckoutSession, updateUserProfile, upsertParticipant,
+  recordWalletEntry, replaceProposal, setCheckoutSession, updateUserProfile, upsertParticipant,
 } from "@/lib/repository";
-import { createCommitmentCheckout } from "@/lib/stripe";
-import type { SubmissionStatus, User } from "@/lib/types";
+import {
+  createCommitmentCheckout,
+  createTopUpCheckout,
+  refundTopUp,
+} from "@/lib/stripe";
+import type { ProofMedia, SubmissionStatus, User } from "@/lib/types";
+
 
 /**
  * Write side of the data layer.
@@ -47,8 +58,17 @@ export interface VerdictResult extends ActionResult {
   paymentRequestId?: string;
 }
 
-/** How many members must stake before a proposal becomes a live challenge. */
-const MEMBERS_REQUIRED_TO_START = 2;
+/**
+ * How many members must stake before a proposal becomes a live challenge.
+ *
+ * Two by default, because a commitment nobody else made isn't accountability.
+ * Overridable so one person can walk the whole loop — stake, miss, pay — while
+ * testing, without needing a second identity just to reach the pay screen.
+ */
+const MEMBERS_REQUIRED_TO_START = Math.max(
+  1,
+  Number(process.env.MEMBERS_REQUIRED_TO_START) || 2,
+);
 
 /**
  * Resolves the caller and confirms they belong to the group.
@@ -125,16 +145,55 @@ export async function updateProfile(
   }
 
   const user = await getCurrentUser();
+  const wasFirstRun = !isProfileComplete(user);
   if (!(await updateUserProfile(user.id, displayName, headline.slice(0, 160), interests))) {
     return { ok: false, error: "We couldn't find your account." };
   }
 
   revalidatePath("/profile");
   revalidatePath("/groups");
+  // The header renders the name and avatar on every signed-in page, so a
+  // rename has to invalidate the whole shell, not just the two routes above.
+  revalidatePath("/", "layout");
+
+  // First-time setup exists to unblock the rest of the app, so send them on the
+  // moment it succeeds rather than leaving them on a form with nothing left to
+  // do. Editing an existing profile stays put and just confirms the save.
+  if (wasFirstRun) redirect("/groups");
   return { ok: true };
 }
 
-/** Posts a message to the group chat. */
+/** An @-mention of the agent, and only at a word boundary. */
+const AGENT_MENTION = /(^|\s)@agent\b/i;
+
+/**
+ * Runs one agent turn and posts its reply into the chat.
+ *
+ * Shared by the @-mention path and the button so both behave identically — the
+ * agent has one way in, whichever way you summoned it.
+ */
+async function respondAsAgent(groupId: string, actingUserId: string) {
+  const history = await getChatMessages(groupId);
+  const turn = await runAgentTurn(history, await getUsers(), { groupId, actingUserId });
+  const proposed = await getProposedChallenge(groupId);
+  await insertMessage({
+    groupId,
+    role: "agent",
+    userId: null,
+    body: turn.reply,
+    challengeId: proposed?.id,
+  });
+
+  return turn;
+}
+
+/**
+ * Posts a message to the group chat, and answers if the agent was addressed.
+ *
+ * The agent doesn't watch the thread — it replies when someone says @agent.
+ * Keeping the trigger explicit means no surprise proposals, and one model call
+ * per intentional ask rather than one per message.
+ */
 export async function sendMessage(
   _prev: ActionResult | null,
   formData: FormData,
@@ -153,15 +212,28 @@ export async function sendMessage(
     body: body.slice(0, 1000),
   });
 
+  if (AGENT_MENTION.test(body)) {
+    try {
+      await respondAsAgent(groupId, user.id);
+    } catch (error) {
+      // The member's own message is already posted and shouldn't be lost just
+      // because the agent couldn't answer.
+      console.error("Agent failed to answer a mention", {
+        groupId,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  }
+
   revalidatePath(`/groups/${groupId}`);
   return { ok: true };
 }
 
 /**
- * Summons the agent to read the chat and propose a challenge.
+ * Summons the agent without addressing it in a message.
  *
- * The proposal is a challenge in `proposed` status — visible to everyone, but
- * binding on nobody until members stake on it.
+ * Same turn the @-mention runs — the button is just a discoverable way in for
+ * people who don't know the mention exists yet.
  */
 export async function summonAgent(
   _prev: ActionResult | null,
@@ -172,43 +244,20 @@ export async function summonAgent(
   const user = await requireMember(groupId);
   if (!user) return { ok: false, error: "You're not a member of this group." };
 
-  if (await getActiveChallenge(groupId)) {
-    return { ok: false, error: "This group already has a challenge running." };
-  }
-
   const history = await getChatMessages(groupId);
   if (history.length === 0) {
     return { ok: false, error: "Talk about what you want to commit to first." };
   }
 
-  const proposal = await proposeChallenge(history, await getUsers());
-
-  // A new proposal replaces any outstanding one — the group only ever weighs
-  // up a single ask at a time.
-  const dueAt = new Date();
-  dueAt.setHours(proposal.dueHour, 0, 0, 0);
-
-  const challenge = await replaceProposal({
-    groupId,
-    title: proposal.title,
-    description: proposal.description,
-    status: "proposed",
-    dueAt: dueAt.toISOString(),
-    dueHour: proposal.dueHour,
-    startDate: localDate(),
-    durationDays: proposal.durationDays,
-    commitmentAmountCents: proposal.suggestedStakeCents,
-    agentGenerated: true,
-    rationale: proposal.rationale,
-  });
-
-  await insertMessage({
-    groupId,
-    role: "agent",
-    userId: null,
-    body: proposal.rationale,
-    challengeId: challenge.id,
-  });
+  try {
+    await respondAsAgent(groupId, user.id);
+  } catch (error) {
+    console.error("Agent turn failed", {
+      groupId,
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+    return { ok: false, error: "The agent couldn't respond. Try again." };
+  }
 
   revalidatePath(`/groups/${groupId}`);
   return { ok: true };
@@ -255,6 +304,11 @@ export async function joinChallenge(
   return { ok: true };
 }
 
+/** Formats integer cents for a ledger memo. */
+function formatCents(cents: number): string {
+  return `$${(cents / 100).toFixed(2)}`;
+}
+
 /** Drops the caller out of a proposal without killing it for everyone else. */
 export async function declineChallenge(
   _prev: ActionResult | null,
@@ -275,6 +329,38 @@ export async function declineChallenge(
 }
 
 /**
+ * Reads the frames the browser extracted, treating them as untrusted input.
+ *
+ * A server action is a public POST endpoint, so nothing here assumes the
+ * payload came from our form. Anything malformed is dropped rather than
+ * rejected: the agent still has the written proof to rule on.
+ */
+function parseProofMedia(raw: FormDataEntryValue | null): ProofMedia | null {
+  if (typeof raw !== "string" || raw.length === 0) return null;
+  try {
+    const parsed = JSON.parse(raw) as Partial<ProofMedia>;
+    if (parsed.kind !== "image" && parsed.kind !== "video") return null;
+    if (!Array.isArray(parsed.frames)) return null;
+
+    const frames = parsed.frames
+      .filter((frame): frame is string => typeof frame === "string")
+      .filter((frame) => /^[A-Za-z0-9+/=]+$/.test(frame));
+    if (frames.length === 0) return null;
+
+    return {
+      kind: parsed.kind,
+      frames,
+      durationSeconds:
+        typeof parsed.durationSeconds === "number" && Number.isFinite(parsed.durationSeconds)
+          ? parsed.durationSeconds
+          : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Submits proof for today's round and runs the agent over it in one step.
  *
  * A miss creates a *pending* payment request for that round's stake. It is
@@ -286,6 +372,7 @@ export async function submitProof(
 ): Promise<VerdictResult> {
   const groupId = String(formData.get("groupId") ?? "");
   const proof = String(formData.get("proof") ?? "").trim();
+  const media = parseProofMedia(formData.get("media"));
 
   if (proof.length === 0) {
     return { ok: false, error: "Add a link or a short note describing what you did." };
@@ -305,12 +392,17 @@ export async function submitProof(
     return { ok: false, error: "You didn't stake on this challenge." };
   }
 
-  const verdict = await evaluateProof(challenge.title, proof);
+  const verdict = await evaluateProof(challenge.title, proof, {
+    description: challenge.description,
+    media,
+  });
 
   const paymentRequestId = await persistVerdict({
     challengeId: challenge.id, groupId, userId: user.id, roundDate: round.date,
     proof, status: verdict.status, reason: verdict.reason, stakeCents: participant.stakeCents,
   });
+
+
 
   revalidatePath(`/groups/${groupId}`);
   return {
@@ -319,6 +411,124 @@ export async function submitProof(
     reason: verdict.reason,
     paymentRequestId,
   };
+}
+
+/**
+ * Sends the member to Stripe to buy credits.
+ *
+ * The amount is checked against the offered packs rather than trusted from the
+ * form — this is a public POST endpoint, and the price is not the client's to
+ * choose.
+ */
+export async function startTopUp(
+  _prev: ActionResult | null,
+  formData: FormData,
+): Promise<ActionResult> {
+  const amountCents = Number(formData.get("amountCents") ?? 0);
+  if (!TOP_UP_OPTIONS_CENTS.includes(amountCents as never)) {
+    return { ok: false, error: "Pick one of the listed credit packs." };
+  }
+
+  const user = await getCurrentUser();
+
+  let checkoutUrl: string;
+  try {
+    const session = await createTopUpCheckout(user.id, amountCents);
+    if (!session.url) {
+      return { ok: false, error: "Stripe did not return a Checkout URL." };
+    }
+    checkoutUrl = session.url;
+  } catch (error) {
+    console.error("Unable to create top-up Checkout Session", {
+      userId: user.id,
+      error: error instanceof Error ? error.message : "Unknown Stripe error",
+    });
+    return {
+      ok: false,
+      error: "Stripe Checkout is temporarily unavailable. Please try again.",
+    };
+  }
+
+  redirect(checkoutUrl);
+}
+
+/**
+ * Cashes credits back out through Stripe.
+ *
+ * Refunds against the member's own top-ups, oldest first, because that is
+ * literally where the money came from. Two things are therefore not cashable
+ * and the cap enforces both: welcome credits, which nobody paid for, and
+ * anything already forfeited or previously withdrawn.
+ */
+export async function cashOut(
+  _prev: ActionResult | null,
+  formData: FormData,
+): Promise<ActionResult> {
+  const requestedCents = Math.round(Number(formData.get("amountDollars") ?? 0) * 100);
+  if (!Number.isFinite(requestedCents) || requestedCents <= 0) {
+    return { ok: false, error: "Enter an amount to cash out." };
+  }
+
+  const user = await getCurrentUser();
+  const balance = await getWalletBalance(user.id);
+  const refundable = await getRefundableCents(user.id);
+  const cap = Math.min(balance, refundable);
+
+  if (cap <= 0) {
+    return {
+      ok: false,
+      error:
+        "Nothing to cash out. Only credits you bought through Stripe can be withdrawn.",
+    };
+  }
+  if (requestedCents > cap) {
+    return {
+      ok: false,
+      error: `You can cash out up to ${formatCents(cap)} right now.`,
+    };
+  }
+
+  // Draw down each top-up in turn until the request is covered. A single
+  // withdrawal can span several purchases, so this may issue more than one
+  // refund — each one is a separate Stripe transaction, as it should be.
+  let remaining = requestedCents;
+  const sources = await getRefundableTopUps(user.id);
+
+  for (const source of sources) {
+    if (remaining <= 0) break;
+    const take = Math.min(remaining, source.remainingCents);
+    if (take <= 0) continue;
+
+    try {
+      const refund = await refundTopUp(source.paymentIntentId, take, user.id);
+      await recordWalletEntry({
+        userId: user.id,
+        amountCents: -take,
+        kind: "cash_out",
+        memo: "Cashed out to your card",
+        stripePaymentIntentId: source.paymentIntentId,
+        stripeRefundId: refund.id,
+      });
+      remaining -= take;
+    } catch (error) {
+      console.error("Refund failed during cash-out", {
+        userId: user.id,
+        paymentIntentId: source.paymentIntentId,
+        error: error instanceof Error ? error.message : "Unknown Stripe error",
+      });
+      // Whatever already refunded stays recorded — the ledger reflects the
+      // money that actually moved, not the amount we hoped to move.
+      break;
+    }
+  }
+
+  if (remaining === requestedCents) {
+    return { ok: false, error: "Stripe couldn't process the refund. Try again." };
+  }
+
+  revalidatePath("/wallet");
+  revalidatePath("/", "layout");
+  return { ok: true };
 }
 
 /**

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { LogIn, LogOut, UserRound } from "lucide-react";
+import { LogIn, LogOut, UserRound, Wallet } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { BrandMark } from "@/components/brand-mark";
 import {
@@ -11,7 +11,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { getCurrentUser, getSignInState } from "@/lib/data";
+import { formatMoney } from "@/lib/format";
+import { getCurrentUser, getSignInState, getWalletBalance } from "@/lib/data";
 
 /**
  * Global header for signed-in pages.
@@ -27,6 +28,7 @@ export async function AppHeader() {
     getCurrentUser(),
     getSignInState(),
   ]);
+  const balance = await getWalletBalance(user.id);
 
   return (
     <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-md">
@@ -42,6 +44,15 @@ export async function AppHeader() {
         </Link>
 
         <div className="flex items-center gap-3">
+          {/* Sits in the header on purpose: watching the balance drop the
+              moment a day is missed is the whole point of staking. */}
+          <Link
+            href="/wallet"
+            className="numeric rounded-full bg-muted px-3 py-1.5 text-sm font-bold transition-colors hover:bg-muted/70 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+          >
+            <span className="sr-only">Credit balance: </span>
+            {formatMoney(balance)}
+          </Link>
           <span className="hidden text-sm font-medium text-muted-foreground sm:inline">
             {user.displayName}
           </span>
@@ -72,6 +83,10 @@ export async function AppHeader() {
                 <DropdownMenuItem render={<Link href="/profile" />}>
                   <UserRound />
                   Your profile
+                </DropdownMenuItem>
+                <DropdownMenuItem render={<Link href="/wallet" />}>
+                  <Wallet />
+                  Credits
                 </DropdownMenuItem>
               </DropdownMenuGroup>
               <DropdownMenuSeparator />

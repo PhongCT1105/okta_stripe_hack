@@ -1,7 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useActionState, useState } from "react";
 import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -34,7 +33,6 @@ export function ProfileForm({
   interestOptions: readonly string[];
   isFirstRun: boolean;
 }) {
-  const router = useRouter();
   const [state, formAction, pending] = useActionState<ActionResult | null, FormData>(
     updateProfile,
     null,
@@ -45,13 +43,6 @@ export function ProfileForm({
   // initialized, so the selection lives here instead — seeded from the server
   // on mount, owned by the client from then on.
   const [interests, setInterests] = useState<string[]>(user.interests);
-
-  // First-time setup exists to unblock the rest of the app, so send them on
-  // the moment it succeeds rather than leaving them on a form with nothing
-  // left to do.
-  useEffect(() => {
-    if (state?.ok && isFirstRun) router.push("/groups");
-  }, [state?.ok, isFirstRun, router]);
 
   return (
     <form action={formAction}>

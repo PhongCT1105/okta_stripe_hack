@@ -169,6 +169,12 @@ export async function persistVerdict(input: {
       agent_reason=EXCLUDED.agent_reason,submitted_at=now(),reviewed_at=now()
   ) UPDATE group_members SET streak=0 WHERE group_id=${input.groupId} AND user_id=${input.userId}`;
   if (input.stakeCents <= 0) return;
+  const forfeited = await sql`INSERT INTO wallet_entries
+    (user_id,amount_cents,kind,memo,challenge_id,round_date)
+    SELECT ${input.userId},${-input.stakeCents},'forfeit','Missed commitment',${input.challengeId},${input.roundDate}
+    WHERE (SELECT coalesce(sum(amount_cents),0) FROM wallet_entries WHERE user_id=${input.userId}) >= ${input.stakeCents}
+    ON CONFLICT DO NOTHING RETURNING id`;
+  if (forfeited.length > 0) return;
   const [row] = await sql`INSERT INTO payment_requests(challenge_id,user_id,round_date,amount_cents,status)
     VALUES(${input.challengeId},${input.userId},${input.roundDate},${input.stakeCents},'pending')
     ON CONFLICT(challenge_id,user_id,round_date) DO UPDATE SET amount_cents=EXCLUDED.amount_cents
@@ -183,6 +189,22 @@ export async function markPaymentPaid(requestId: string, sessionId: string): Pro
   const rows = await db()`UPDATE payment_requests SET status='paid',paid_at=now()
     WHERE id=${requestId} AND stripe_checkout_session_id=${sessionId} AND status='pending' RETURNING id`;
   return rows.length === 1;
+}
+export async function recordWalletEntry(input: {
+  userId: string; amountCents: number; kind: string; memo: string;
+  challengeId?: string; roundDate?: string; stripeCheckoutSessionId?: string;
+  stripePaymentIntentId?: string; stripeRefundId?: string;
+}): Promise<void> {
+  await db()`INSERT INTO wallet_entries(user_id,amount_cents,kind,memo,challenge_id,round_date,
+    stripe_checkout_session_id,stripe_payment_intent_id,stripe_refund_id)
+    VALUES(${input.userId},${input.amountCents},${input.kind},${input.memo},
+      ${input.challengeId ?? null},${input.roundDate ?? null},${input.stripeCheckoutSessionId ?? null},
+      ${input.stripePaymentIntentId ?? null},${input.stripeRefundId ?? null})
+    ON CONFLICT DO NOTHING`;
+}
+export async function getWalletEntryByCheckout(sessionId: string) {
+  const [row] = await db()`SELECT amount_cents FROM wallet_entries WHERE stripe_checkout_session_id=${sessionId}`;
+  return row ? Number(row.amount_cents) : null;
 }
 export async function overrideSubmission(id: string, groupId: string, status: SubmissionStatus) {
   const sql = db();

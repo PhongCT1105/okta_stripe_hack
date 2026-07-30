@@ -24,13 +24,14 @@ export function GroupChat({
   messages,
   members,
   currentUserId,
-  canSummon,
+  summonLabel,
 }: {
   groupId: string;
   messages: ChatMessage[];
   members: User[];
   currentUserId: string;
-  canSummon: boolean;
+  /** What the summon button offers, which depends on whether a run is live. */
+  summonLabel: string;
 }) {
   const router = useRouter();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -69,7 +70,8 @@ export function GroupChat({
       <div className="flex items-center gap-2 border-b px-4 py-3">
         <h2 className="font-heading font-bold">Group chat</h2>
         <p className="text-xs text-muted-foreground">
-          Talk it through, then let the agent turn it into a commitment.
+          Say <span className="font-semibold text-primary">@agent</span> to bring
+          the agent in.
         </p>
       </div>
 
@@ -147,7 +149,7 @@ export function GroupChat({
           <input type="hidden" name="groupId" value={groupId} />
           <Input
             name="body"
-            placeholder="Say something…"
+            placeholder="Say something, or @agent to ask…"
             autoComplete="off"
             aria-label="Message"
           />
@@ -156,8 +158,7 @@ export function GroupChat({
           </Button>
         </form>
 
-        {canSummon ? (
-          <form action={summonAction}>
+        <form action={summonAction}>
             <input type="hidden" name="groupId" value={groupId} />
             <Button
               type="submit"
@@ -174,12 +175,11 @@ export function GroupChat({
               ) : (
                 <>
                   <Sparkles data-icon="inline-start" />
-                  Ask the agent for a challenge
+                  {summonLabel}
                 </>
               )}
             </Button>
-          </form>
-        ) : null}
+        </form>
       </div>
     </div>
   );

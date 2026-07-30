@@ -1,4 +1,9 @@
 import Anthropic from "@anthropic-ai/sdk";
+import {
+  AGENT_TOOLS,
+  runAgentTool,
+  type AgentToolContext,
+} from "@/lib/agent-tools";
 import type { ChatMessage, User } from "@/lib/types";
 
 /**
@@ -235,4 +240,167 @@ export async function proposeChallenge(
     });
     return fallback;
   }
+}
+
+/* ------------------------------------------------------------------ *
+ * Conversational agent
+ * ------------------------------------------------------------------ */
+
+export interface AgentTurnResult {
+  /** What the agent says back, posted into the chat. */
+  reply: string;
+  /** True when a tool changed group state, so the page needs revalidating. */
+  changed: boolean;
+  /** True when the model was unavailable and rules stood in for it. */
+  usedFallback: boolean;
+}
+
+const CONVERSATION_SYSTEM_PROMPT = `You are the accountability agent in a friend group's chat. You turn what people say into commitments they can actually be held to, and you help them keep track once a challenge is running.
+
+What you can do, via your tools: read the group's current state, propose a challenge, revise or withdraw a proposal, and update the goal of whoever is talking to you.
+
+How to behave:
+- Call get_group_state before answering anything about how the group is doing, what is running, or who is behind. Never guess at state or invent numbers.
+- Propose only what the group actually discussed. Do not invent a goal nobody raised.
+- A challenge must be provable with an artifact — a link, a screenshot, or a video. Two proof types verify automatically, so prefer them: LeetCode problems (the title must contain "LeetCode") and push-ups (the title must contain "push-ups").
+- If someone pushes back on the terms of an outstanding proposal, revise it rather than proposing a second one.
+- When someone tells you what they are working toward, update their profile so they do not have to fill in a form. Only ever update the profile of the person talking to you.
+
+What you cannot do, and should say plainly if asked:
+- You cannot start a challenge. Members start it by staking on it — that is the approval, and it is deliberately not yours to give.
+- You cannot charge anyone, waive what they owe, or move money. Payment happens only when the member who owes it approves a Stripe checkout themselves.
+- You cannot stake on someone's behalf or change what they have staked.
+
+Write like a member of the group, not a support bot. Two or three sentences. No bullet lists, no headers, no restating what you just did in full — they can see the proposal on screen. If you refused something, say why in one line.`;
+
+/**
+ * Runs one conversational turn: reads the chat, uses tools, replies.
+ *
+ * A manual loop rather than the SDK's tool runner, because each tool here
+ * mutates shared group state and the harness needs to stay the thing that
+ * decides what is allowed — the loop is where refusals, the iteration cap, and
+ * the acting-user scoping live.
+ */
+export async function runAgentTurn(
+  history: ChatMessage[],
+  members: User[],
+  ctx: AgentToolContext,
+): Promise<AgentTurnResult> {
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return runFallbackTurn(history, ctx);
+  }
+
+  const speaker =
+    members.find((m) => m.id === ctx.actingUserId)?.displayName ?? "A member";
+
+  try {
+    const client = new Anthropic();
+    const messages: Anthropic.MessageParam[] = [
+      {
+        role: "user",
+        content: `Group chat so far:\n\n${transcriptFor(history, members)}\n\n${speaker} is talking to you. Respond to them.`,
+      },
+    ];
+
+    let changed = false;
+
+    // Bounded so a model that keeps calling tools can't spin. Six is enough for
+    // read → act → confirm with room to recover from a refusal.
+    for (let turn = 0; turn < 6; turn += 1) {
+      const response = await client.messages.create({
+        model: MODEL,
+        max_tokens: 4096,
+        system: CONVERSATION_SYSTEM_PROMPT,
+        output_config: { effort: "low" },
+        tools: AGENT_TOOLS,
+        messages,
+      });
+
+      if (response.stop_reason === "refusal") {
+        return {
+          reply: "I can't help with that one.",
+          changed,
+          usedFallback: false,
+        };
+      }
+
+      const toolUses = response.content.filter(
+        (block) => block.type === "tool_use",
+      );
+
+      if (toolUses.length === 0) {
+        const reply = response.content
+          .filter((block) => block.type === "text")
+          .map((block) => block.text)
+          .join("\n")
+          .trim();
+        return {
+          reply: reply || "I'm not sure what you want me to do there.",
+          changed,
+          usedFallback: false,
+        };
+      }
+
+      messages.push({ role: "assistant", content: response.content });
+
+      const results: Anthropic.ToolResultBlockParam[] = [];
+      for (const toolUse of toolUses) {
+        const outcome = await runAgentTool(
+          toolUse.name,
+          (toolUse.input ?? {}) as Record<string, unknown>,
+          ctx,
+        );
+        if (outcome.changed) changed = true;
+        results.push({
+          type: "tool_result",
+          tool_use_id: toolUse.id,
+          content: outcome.result,
+        });
+      }
+
+      messages.push({ role: "user", content: results });
+    }
+
+    return {
+      reply: "I went in circles on that — try asking me a narrower question.",
+      changed,
+      usedFallback: false,
+    };
+  } catch (error) {
+    console.error("Agent turn failed", {
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+    return runFallbackTurn(history, ctx);
+  }
+}
+
+/**
+ * Offline stand-in for a turn.
+ *
+ * Without a model there is no conversation, so it does the one thing the group
+ * most likely wanted: read the chat with keyword rules and put a proposal up.
+ */
+async function runFallbackTurn(
+  history: ChatMessage[],
+  ctx: AgentToolContext,
+): Promise<AgentTurnResult> {
+  const proposal = proposeFromRules(history);
+  const outcome = await runAgentTool(
+    "propose_challenge",
+    {
+      title: proposal.title,
+      description: proposal.description,
+      durationDays: proposal.durationDays,
+      suggestedStakeDollars: proposal.suggestedStakeCents / 100,
+      dueHour: proposal.dueHour,
+      rationale: proposal.rationale,
+    },
+    ctx,
+  );
+
+  return {
+    reply: outcome.changed ? proposal.rationale : outcome.result,
+    changed: Boolean(outcome.changed),
+    usedFallback: true,
+  };
 }

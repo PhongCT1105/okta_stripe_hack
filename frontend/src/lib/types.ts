@@ -105,7 +105,7 @@ export interface Challenge {
 export interface ChallengeParticipant {
   challengeId: string;
   userId: string;
-  /** Integer cents owed for each round this member misses. */
+  /** Integer cents forfeited from credits for each round this member misses. */
   stakeCents: number;
   joinedAt: string;
 }
@@ -134,6 +134,20 @@ export interface ChatMessage {
   challengeId?: string;
 }
 
+/**
+ * What the member actually recorded, reduced to something the model can read.
+ *
+ * The Claude API takes images, not video, so a recording is sampled into a
+ * handful of JPEG frames in the browser and only those travel to the server.
+ * A photo is a single frame. Base64 payloads carry no `data:` prefix.
+ */
+export interface ProofMedia {
+  kind: "image" | "video";
+  frames: string[];
+  /** Present for video only. Lets the agent reason about pacing and length. */
+  durationSeconds?: number;
+}
+
 export interface Submission {
   id: string;
   challengeId: string;
@@ -146,6 +160,50 @@ export interface Submission {
   /** The agent's plain-language justification. Shown verbatim to the user. */
   agentReason: string | null;
   submittedAt: string | null;
+}
+
+/**
+ * Why credits moved.
+ *
+ * `signup_grant` is the credits every account starts with, `top_up` is credits
+ * bought through Stripe, `forfeit` is a missed round settling itself, and
+ * `cash_out` is credits refunded back out through Stripe.
+ */
+export type WalletEntryKind =
+  | "signup_grant"
+  | "top_up"
+  | "forfeit"
+  | "cash_out";
+
+/**
+ * One movement of credits.
+ *
+ * The wallet is a ledger, not a mutable number: a balance is the sum of what
+ * happened to it. That means the balance can never drift out of step with the
+ * history, and the history is the thing worth showing — "you forfeited $5 on
+ * day 3" reads as accountability in a way that a lone integer doesn't.
+ */
+export interface WalletEntry {
+  id: string;
+  userId: string;
+  /** Integer cents. Positive puts credits in, negative takes them out. */
+  amountCents: number;
+  kind: WalletEntryKind;
+  /** One line shown in the ledger. */
+  memo: string;
+  createdAt: string;
+  /** Set on a forfeit, so a miss can be traced back to its round. */
+  challengeId?: string;
+  roundDate?: string;
+  /**
+   * Set on a top-up. Also the idempotency key: crediting is keyed on this so a
+   * refreshed success page can't mint credits twice.
+   */
+  stripeCheckoutSessionId?: string;
+  /** The PaymentIntent a top-up settled into. What a cash-out refunds against. */
+  stripePaymentIntentId?: string;
+  /** Set on a cash-out, so a refund can be traced back to its Stripe record. */
+  stripeRefundId?: string;
 }
 
 export interface PaymentRequest {
