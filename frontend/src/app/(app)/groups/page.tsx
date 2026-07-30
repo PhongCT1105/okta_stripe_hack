@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Plus, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,10 +11,21 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { StreakBadge } from "@/components/streak-badge";
-import { getCurrentUser, getGroupsForUser, getLeaderboard } from "@/lib/data";
+import {
+  getCurrentUser,
+  getGroupsForUser,
+  getLeaderboard,
+  isProfileComplete,
+} from "@/lib/data";
 
 export default async function GroupsPage() {
   const user = await getCurrentUser();
+
+  // This is where every login lands, so it's the one place that has to catch a
+  // half-finished account. Gating here rather than in the layout keeps it to a
+  // single redirect site with no chance of a loop against /profile itself.
+  if (!isProfileComplete(user)) redirect("/profile");
+
   const groups = await getGroupsForUser(user.id);
 
   const cards = await Promise.all(

@@ -1,5 +1,7 @@
 import type {
   Challenge,
+  ChallengeParticipant,
+  ChatMessage,
   Group,
   GroupMember,
   PaymentRequest,
@@ -16,14 +18,42 @@ import type {
  * is a feature during rehearsal.
  */
 
-/** Today at 5:00 PM local, matching the seeded "before 5:00 PM" challenge. */
-function todayAt(hour: number): string {
+/** Today at a given hour, local time, as an ISO string. */
+export function todayAt(hour: number): string {
   const d = new Date();
   d.setHours(hour, 0, 0, 0);
   return d.toISOString();
 }
 
+/** YYYY-MM-DD in local time. The round identifier used everywhere. */
+export function localDate(date: Date = new Date()): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function minutesAgo(minutes: number): string {
+  return new Date(Date.now() - minutes * 60_000).toISOString();
+}
+
 export const CURRENT_USER_ID = "user_phong";
+
+/**
+ * Goal tags offered on the profile.
+ *
+ * Kept to a short fixed list rather than free text so two people chasing the
+ * same thing actually collide on the same value — free-form tags would splinter
+ * into "leetcode", "LeetCode", "algos" and match nobody.
+ */
+export const INTEREST_OPTIONS = [
+  "Interview prep",
+  "Shipping side projects",
+  "Fitness",
+  "Writing",
+  "Studying",
+  "Reading",
+] as const;
 
 export const users: User[] = [
   {
@@ -31,9 +61,25 @@ export const users: User[] = [
     auth0UserId: null,
     displayName: "Phong",
     initials: "PC",
+    headline: "Getting interview-ready without letting side projects slide",
+    interests: ["Interview prep", "Shipping side projects"],
   },
-  { id: "user_alex", auth0UserId: null, displayName: "Alex", initials: "AX" },
-  { id: "user_sam", auth0UserId: null, displayName: "Sam", initials: "SM" },
+  {
+    id: "user_alex",
+    auth0UserId: null,
+    displayName: "Alex",
+    initials: "AX",
+    headline: "Grinding algorithms before onsites in five weeks",
+    interests: ["Interview prep"],
+  },
+  {
+    id: "user_sam",
+    auth0UserId: null,
+    displayName: "Sam",
+    initials: "SM",
+    headline: "Trying to build one habit that actually sticks",
+    interests: ["Interview prep", "Fitness"],
+  },
 ];
 
 export const groups: Group[] = [
@@ -69,52 +115,63 @@ export const groupMembers: GroupMember[] = [
   },
 ];
 
-export const challenges: Challenge[] = [
+/**
+ * Seeded conversation.
+ *
+ * This is the agent's input, so it is written the way a real group chat reads:
+ * an intent that never quite becomes a commitment. Summoning the agent turns it
+ * into one — which is the whole demo.
+ */
+export const chatMessages: ChatMessage[] = [
   {
-    id: "chl_leetcode",
+    id: "msg_0001",
     groupId: "grp_builder",
-    title: "Complete one LeetCode problem",
-    description:
-      "Solve any problem end to end and submit the accepted submission link or a screenshot.",
-    dueAt: todayAt(17),
-    commitmentAmountCents: 500,
-    agentGenerated: false,
-  },
-];
-
-export const submissions: Submission[] = [
-  {
-    id: "sub_alex",
-    challengeId: "chl_leetcode",
+    role: "member",
     userId: "user_alex",
-    proof: "https://leetcode.com/problems/two-sum/ — solved in O(n) with a hash map.",
-    status: "passed",
-    agentReason:
-      "Linked a specific problem and described a correct O(n) approach. Counts as complete.",
-    submittedAt: todayAt(9),
+    body: "interviews are in like 5 weeks and I have done basically zero prep",
+    createdAt: minutesAgo(42),
   },
   {
-    id: "sub_sam",
-    challengeId: "chl_leetcode",
+    id: "msg_0002",
+    groupId: "grp_builder",
+    role: "member",
     userId: "user_sam",
-    proof: "ran out of time today",
-    status: "missed",
-    agentReason:
-      "No problem attempted and no proof provided. This does not meet the commitment.",
-    submittedAt: todayAt(16),
+    body: "same. I keep saying I'll grind leetcode and then just... don't",
+    createdAt: minutesAgo(38),
+  },
+  {
+    id: "msg_0003",
+    groupId: "grp_builder",
+    role: "member",
+    userId: "user_phong",
+    body: "ok what if we actually commit. 1-2 mediums a day, every day, for a week",
+    createdAt: minutesAgo(31),
+  },
+  {
+    id: "msg_0004",
+    groupId: "grp_builder",
+    role: "member",
+    userId: "user_alex",
+    body: "I'm in but only if there's money on it, otherwise I'll bail by wednesday",
+    createdAt: minutesAgo(27),
+  },
+  {
+    id: "msg_0005",
+    groupId: "grp_builder",
+    role: "member",
+    userId: "user_sam",
+    body: "$5 a miss sounds about right. enough to hurt, not enough to ruin me",
+    createdAt: minutesAgo(24),
   },
 ];
 
-export const paymentRequests: PaymentRequest[] = [
-  {
-    id: "pay_sam",
-    challengeId: "chl_leetcode",
-    userId: "user_sam",
-    amountCents: 500,
-    stripeCheckoutSessionId: null,
-    status: "pending",
-  },
-];
+export const challenges: Challenge[] = [];
+
+export const challengeParticipants: ChallengeParticipant[] = [];
+
+export const submissions: Submission[] = [];
+
+export const paymentRequests: PaymentRequest[] = [];
 
 /** Monotonic id source. Avoids Math.random so ids stay reproducible per run. */
 let idCounter = 0;

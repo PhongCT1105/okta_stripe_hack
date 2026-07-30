@@ -30,6 +30,16 @@ export interface User {
   /** Two-letter fallback shown when no avatar image is available. */
   initials: string;
   avatarUrl?: string;
+  /**
+   * One line on what this person is working toward.
+   *
+   * Null until they finish setting up their profile, which is what gates the
+   * first-run redirect. It is also the text a future matcher would compare
+   * against other members' goals.
+   */
+  headline: string | null;
+  /** Coarse goal tags, used to match people chasing the same thing. */
+  interests: string[];
 }
 
 export interface Group {
@@ -50,22 +60,85 @@ export interface GroupMember {
   score: number;
 }
 
+/**
+ * Where a challenge sits in the chat → propose → opt-in → run lifecycle.
+ *
+ * A `proposed` challenge is visible to the group but binds nobody. It becomes
+ * `active` once enough members have staked on it.
+ */
+export type ChallengeStatus = "proposed" | "active";
+
 export interface Challenge {
   id: string;
   groupId: string;
   title: string;
   description: string;
-  /** ISO 8601. Rendered as a countdown on the client to avoid SSR drift. */
+  status: ChallengeStatus;
+  /**
+   * ISO 8601 deadline for *today's* round. Rendered as a countdown on the
+   * client to avoid SSR drift. Recomputed per round rather than stored per day.
+   */
   dueAt: string;
-  /** Integer cents owed on a confirmed miss. */
+  /**
+   * The hour of day (local, 0-23) each round is due. Rounds are daily, so the
+   * deadline is a time-of-day rather than a single fixed instant.
+   */
+  dueHour: number;
+  /** YYYY-MM-DD of round 1. */
+  startDate: string;
+  /** How many daily rounds the commitment runs for. */
+  durationDays: number;
+  /** The agent's suggested per-miss stake. Members pick their own on opt-in. */
   commitmentAmountCents: number;
   /** True when the agent proposed this challenge rather than the organizer. */
   agentGenerated: boolean;
+  /** Why the agent proposed this, quoted from the chat. Shown on the proposal. */
+  rationale: string | null;
+}
+
+/**
+ * A member's opt-in to a challenge.
+ *
+ * The stake *is* the approval: you are in this challenge because you put money
+ * on it. Members who never opt in simply aren't part of this run.
+ */
+export interface ChallengeParticipant {
+  challengeId: string;
+  userId: string;
+  /** Integer cents owed for each round this member misses. */
+  stakeCents: number;
+  joinedAt: string;
+}
+
+/** One day of a running challenge. Derived from the challenge, never stored. */
+export interface Round {
+  challengeId: string;
+  /** YYYY-MM-DD. Identifies the round in submissions and payment requests. */
+  date: string;
+  /** 1-based position in the run. */
+  index: number;
+  dueAt: string;
+}
+
+export type ChatRole = "member" | "agent";
+
+export interface ChatMessage {
+  id: string;
+  groupId: string;
+  role: ChatRole;
+  /** Null for agent messages. */
+  userId: string | null;
+  body: string;
+  createdAt: string;
+  /** Set when this message announces a challenge proposal. */
+  challengeId?: string;
 }
 
 export interface Submission {
   id: string;
   challengeId: string;
+  /** YYYY-MM-DD of the round this proves. One submission per member per round. */
+  roundDate: string;
   userId: string;
   /** URL, OCR evidence, pose evidence, or free-text fallback. */
   proof: string;
@@ -78,6 +151,8 @@ export interface Submission {
 export interface PaymentRequest {
   id: string;
   challengeId: string;
+  /** YYYY-MM-DD of the missed round this settles. */
+  roundDate: string;
   userId: string;
   amountCents: number;
   /** Set once a Checkout Session exists. Null until Stripe is wired. */
@@ -85,11 +160,13 @@ export interface PaymentRequest {
   status: PaymentStatus;
 }
 
-/** A member joined with their user record and current-challenge standing. */
+/** A member joined with their user record and current-round standing. */
 export interface LeaderboardEntry {
   user: User;
   member: GroupMember;
   status: SubmissionStatus | null;
   submission: Submission | null;
   paymentRequest: PaymentRequest | null;
+  /** Null when this member hasn't opted into the active challenge. */
+  participant: ChallengeParticipant | null;
 }

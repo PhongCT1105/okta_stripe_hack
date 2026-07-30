@@ -1,9 +1,10 @@
 import { notFound } from "next/navigation";
-import { Target } from "lucide-react";
 import { ChallengeCard } from "@/components/challenge-card";
-import { CreateChallengeForm } from "@/components/create-challenge-form";
+import { ChallengeProposal } from "@/components/challenge-proposal";
+import { GroupChat } from "@/components/group-chat";
 import { InviteLink } from "@/components/invite-link";
 import { Leaderboard } from "@/components/leaderboard";
+import { StakeDashboard } from "@/components/stake-dashboard";
 import {
   Card,
   CardContent,
@@ -12,18 +13,20 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@/components/ui/empty";
-import {
   getActiveChallenge,
+  getChatMessages,
+  getCurrentRound,
   getCurrentUser,
   getGroup,
   getLeaderboard,
+  getMembership,
+  getParticipants,
+  getProposedChallenge,
+  getStakeSummary,
 } from "@/lib/data";
+
+/** Members must start a challenge before it binds anyone. Keep in sync with actions.ts. */
+const MEMBERS_REQUIRED_TO_START = 2;
 
 /** The group dashboard — the screen the demo spends most of its time on. */
 export default async function GroupPage({
@@ -36,13 +39,24 @@ export default async function GroupPage({
   const group = await getGroup(groupId);
   if (!group) notFound();
 
-  const [user, challenge, entries] = await Promise.all([
-    getCurrentUser(),
+  const user = await getCurrentUser();
+  const membership = await getMembership(groupId, user.id);
+  if (!membership) notFound();
+
+  const [active, proposed, entries, messages] = await Promise.all([
     getActiveChallenge(groupId),
+    getProposedChallenge(groupId),
     getLeaderboard(groupId),
+    getChatMessages(groupId),
   ]);
 
+  const challenge = active ?? proposed;
+  const participants = challenge ? await getParticipants(challenge.id) : [];
+  const stakes = await getStakeSummary(active);
+  const round = active ? getCurrentRound(active) : null;
+
   const you = entries.find((entry) => entry.user.id === user.id) ?? null;
+  const members = entries.map((entry) => entry.user);
 
   return (
     <div className="flex flex-col gap-6">
@@ -53,41 +67,47 @@ export default async function GroupPage({
         </p>
       </div>
 
-      {challenge ? (
-        <ChallengeCard
-          challenge={challenge}
-          submission={you?.submission ?? null}
-          paymentRequest={you?.paymentRequest ?? null}
+      {active ? (
+        <>
+          <ChallengeCard
+            challenge={active}
+            submission={you?.submission ?? null}
+            paymentRequest={you?.paymentRequest ?? null}
+            round={round}
+            stakeCents={you?.participant?.stakeCents ?? null}
+          />
+          <StakeDashboard
+            participantCount={stakes.participantCount}
+            potCents={stakes.potCents}
+            atRiskCents={stakes.atRiskCents}
+            collectedCents={stakes.collectedCents}
+            round={round}
+            durationDays={active.durationDays}
+          />
+        </>
+      ) : proposed ? (
+        <ChallengeProposal
+          challenge={proposed}
+          participants={participants}
+          members={members}
+          currentUserId={user.id}
+          membersRequired={MEMBERS_REQUIRED_TO_START}
         />
-      ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle>Set today&apos;s challenge</CardTitle>
-            <CardDescription>
-              One challenge at a time keeps the group focused.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <CreateChallengeForm groupId={group.id} />
-          </CardContent>
-        </Card>
-      )}
+      ) : null}
 
-      {entries.length > 0 ? (
-        <Leaderboard entries={entries} currentUserId={user.id} />
-      ) : (
-        <Empty>
-          <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <Target />
-            </EmptyMedia>
-            <EmptyTitle>Nobody here yet</EmptyTitle>
-            <EmptyDescription>
-              Share the invite link below to get your friends in.
-            </EmptyDescription>
-          </EmptyHeader>
-        </Empty>
-      )}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <GroupChat
+          groupId={group.id}
+          messages={messages}
+          members={members}
+          currentUserId={user.id}
+          canSummon={!active}
+        />
+
+        {entries.length > 0 ? (
+          <Leaderboard entries={entries} currentUserId={user.id} />
+        ) : null}
+      </div>
 
       <Card>
         <CardHeader>

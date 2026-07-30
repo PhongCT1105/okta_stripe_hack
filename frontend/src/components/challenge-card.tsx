@@ -5,24 +5,29 @@ import { DueCountdown } from "@/components/due-countdown";
 import { StatusPill } from "@/components/status-pill";
 import { SubmitProofDialog } from "@/components/submit-proof-dialog";
 import { formatMoney } from "@/lib/format";
-import type { Challenge, PaymentRequest, Submission } from "@/lib/types";
+import type { Challenge, PaymentRequest, Round, Submission } from "@/lib/types";
 
 /**
- * Today's challenge — the hero of the group dashboard.
+ * Today's round — the hero of the group dashboard.
  *
  * The footer swaps between three states: nothing submitted yet (submit CTA),
  * verified (the agent's reasoning), and missed (reasoning plus the route to
- * settle up). The commitment amount is always visible so the stakes are never
+ * settle up). The member's own stake is always visible so the amount is never
  * a surprise at payment time.
  */
 export function ChallengeCard({
   challenge,
   submission,
   paymentRequest,
+  round,
+  stakeCents,
 }: {
   challenge: Challenge;
   submission: Submission | null;
   paymentRequest: PaymentRequest | null;
+  round: Round | null;
+  /** The signed-in member's stake, or null if they aren't in this run. */
+  stakeCents: number | null;
 }) {
   const pendingPayment =
     submission?.status === "missed" && paymentRequest?.status === "pending"
@@ -40,7 +45,9 @@ export function ChallengeCard({
       <div className="relative flex flex-col gap-5">
         <div className="flex flex-wrap items-center gap-2">
           <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-bold tracking-wide uppercase">
-            Today&apos;s challenge
+            {round
+              ? `Day ${round.index} of ${challenge.durationDays}`
+              : "Challenge complete"}
           </span>
           {challenge.agentGenerated ? (
             <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-3 py-1 text-xs font-bold">
@@ -48,10 +55,12 @@ export function ChallengeCard({
               Agent picked
             </span>
           ) : null}
-          <DueCountdown
-            dueAt={challenge.dueAt}
-            className="ml-auto bg-white/15 text-primary-foreground"
-          />
+          {round ? (
+            <DueCountdown
+              dueAt={round.dueAt}
+              className="ml-auto bg-white/15 text-primary-foreground"
+            />
+          ) : null}
         </div>
 
         <div>
@@ -65,19 +74,25 @@ export function ChallengeCard({
           ) : null}
         </div>
 
-        <div className="flex items-center gap-3 rounded-2xl bg-white/12 px-4 py-3">
-          <span className="text-xs font-bold tracking-wide uppercase text-primary-foreground/70">
-            Commitment
-          </span>
-          <span className="numeric ml-auto text-xl font-bold">
-            {formatMoney(challenge.commitmentAmountCents)}
-          </span>
-          <span className="text-xs text-primary-foreground/70">
-            if you miss it
-          </span>
-        </div>
+        {stakeCents !== null ? (
+          <div className="flex items-center gap-3 rounded-2xl bg-white/12 px-4 py-3">
+            <span className="text-xs font-bold tracking-wide uppercase text-primary-foreground/70">
+              Your stake
+            </span>
+            <span className="numeric ml-auto text-xl font-bold">
+              {formatMoney(stakeCents)}
+            </span>
+            <span className="text-xs text-primary-foreground/70">
+              for each day you miss
+            </span>
+          </div>
+        ) : (
+          <div className="rounded-2xl bg-white/12 px-4 py-3 text-sm text-primary-foreground/80">
+            You didn&apos;t stake on this one, so you&apos;re sitting this run out.
+          </div>
+        )}
 
-        {submission ? (
+        {stakeCents === null || !round ? null : submission ? (
           <div className="flex flex-col gap-3 rounded-2xl bg-white/12 p-4">
             <div className="flex items-center gap-2">
               <StatusPill
@@ -109,7 +124,7 @@ export function ChallengeCard({
           <SubmitProofDialog
             groupId={challenge.groupId}
             challengeTitle={challenge.title}
-            commitmentAmountCents={challenge.commitmentAmountCents}
+            commitmentAmountCents={stakeCents}
           />
         )}
       </div>
