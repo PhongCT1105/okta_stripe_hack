@@ -92,7 +92,7 @@ export default async function LandingPage() {
           <Button
             size="lg"
             className="rounded-xl px-4 shadow-[3px_3px_0_var(--foreground)] hover:-translate-y-0.5 hover:bg-primary active:translate-y-px"
-            render={<Link href="/auth/login" />}
+            render={<a href="/auth/login" />}
           >
             Sign in
             <ArrowRight data-icon="inline-end" />
@@ -125,7 +125,7 @@ export default async function LandingPage() {
             <Button
               size="xl"
               className="rounded-xl shadow-[4px_4px_0_var(--foreground)] transition-transform hover:-translate-y-1 hover:bg-primary active:translate-y-px"
-              render={<Link href="/auth/login" />}
+              render={<a href="/auth/login" />}
             >
               Start a challenge
               <ArrowRight data-icon="inline-end" />
@@ -370,7 +370,7 @@ export default async function LandingPage() {
               <Button
                 size="xl"
                 className="rounded-xl bg-background text-foreground shadow-[4px_4px_0_var(--foreground)] hover:bg-background/90"
-                render={<Link href="/auth/login" />}
+                render={<a href="/auth/login" />}
               >
                 Start the group lore
                 <ArrowRight data-icon="inline-end" />

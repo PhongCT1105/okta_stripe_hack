@@ -9,8 +9,9 @@ import { auth0, isAuth0Configured } from "./lib/auth0";
  * until it's configured keeps the UI workable during development; once the
  * env vars are set this activates on its own.
  *
- * `getOptionalSession` in lib/auth0.ts throws in production if configuration
- * is still missing, so a real deployment can't slip through unauthenticated.
+ * lib/auth0.ts validates complete credentials and the canonical production
+ * origin when this module loads, so partial production configuration fails
+ * closed.
  */
 export async function proxy(request: Request) {
   if (!isAuth0Configured) return NextResponse.next();

@@ -59,17 +59,20 @@
         "description": "Regular Web Application for the okta_stripe_hack Next.js app",
         "app_type": "regular_web",
         "callbacks": [
-          "http://localhost:3000/auth/callback"
+          "http://localhost:3000/auth/callback",
+          "https://okta-stripe-hack.vercel.app/auth/callback"
         ],
         "allowed_logout_urls": [
-          "http://localhost:3000"
+          "http://localhost:3000",
+          "https://okta-stripe-hack.vercel.app"
         ],
         "web_origins": [
-          "http://localhost:3000"
+          "http://localhost:3000",
+          "https://okta-stripe-hack.vercel.app"
         ]
       },
       "createdAt": "2026-07-30T20:36:48.063Z",
-      "lastRevealedAt": "2026-07-30T20:44:25.618Z",
+      "lastRevealedAt": "2026-07-30T23:16:58.224Z",
       "lastStatus": "complete",
       "name": "auth0-client",
       "providerId": "prvdr_61UVctyxfLOj4FpVw5Bmi",
