@@ -1,0 +1,11 @@
+interface:
+  display_name: "21st Magic"
+  short_description: "Search and generate React UI with 21st MCP"
+  default_prompt: "Use $21st-magic to find or generate a frontend component."
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "21st"
+      description: "21st component search and generation MCP"
+      transport: "streamable_http"
+      url: "https://21st.dev/api/mcp"
