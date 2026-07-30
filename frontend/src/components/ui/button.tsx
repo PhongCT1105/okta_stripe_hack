@@ -47,6 +47,8 @@ function Button({
   className,
   variant = "default",
   size = "default",
+  render,
+  nativeButton,
   ...props
 }: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
   return (
@@ -59,6 +61,8 @@ function Button({
         React.isValidElement(props.render) ? props.render.type === "button" : undefined
       }
       className={cn(buttonVariants({ variant, size, className }))}
+      render={render}
+      nativeButton={nativeButton ?? !render}
       {...props}
     />
   )

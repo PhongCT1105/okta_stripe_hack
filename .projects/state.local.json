@@ -20,6 +20,36 @@
       "redirectUrl": null,
       "requestedAt": "2026-07-30T20:36:40.650Z",
       "status": "complete"
+    },
+    "neon": {
+      "accountRequestId": "facctrq_61V8QHaQUXTeCRAWB16Sv9FcAxSQ81irxl0t5PEroEca",
+      "configuration": {},
+      "linkedAt": "2026-07-30T22:21:15.656Z",
+      "providerId": "prvdr_61UH8uNXFdoJUJOtT54AC",
+      "providerName": "Neon",
+      "redirectUrl": null,
+      "requestedAt": "2026-07-30T22:21:15.656Z",
+      "status": "complete"
+    },
+    "openrouter": {
+      "accountRequestId": "facctrq_61V8QHroVteYgdXto16Sv9FcAxSQ81irxl0t5PEro5rc",
+      "configuration": {},
+      "linkedAt": "2026-07-30T22:21:32.317Z",
+      "providerId": "prvdr_61URImmFACEuDHEx651IO",
+      "providerName": "OpenRouter",
+      "redirectUrl": null,
+      "requestedAt": "2026-07-30T22:21:32.317Z",
+      "status": "complete"
+    },
+    "vercel": {
+      "accountRequestId": "facctrq_61V8QGpUUpV9C9Hdz16Sv9FcAxSQ81irxl0t5PEroKLA",
+      "configuration": {},
+      "linkedAt": "2026-07-30T22:20:30.352Z",
+      "providerId": "prvdr_61ULUAr4zlQgZkvXY5LsG",
+      "providerName": "Vercel",
+      "redirectUrl": null,
+      "requestedAt": "2026-07-30T22:20:30.352Z",
+      "status": "complete"
     }
   },
   "resources": {
@@ -57,6 +87,59 @@
       "providerName": "Auth0",
       "resourceId": "fres_61V8OePqcgf0vskaz16Sv9FcAxSQ81irxl0t5PEroSue",
       "serviceId": "free"
+    },
+    "database": {
+      "configuration": {},
+      "createdAt": "2026-07-30T22:46:18.477Z",
+      "lastRevealedAt": "2026-07-30T22:46:18.638Z",
+      "lastStatus": "complete",
+      "name": "database",
+      "providerId": "prvdr_61UH8uNXFdoJUJOtT54AC",
+      "providerName": "Neon",
+      "resourceId": "fres_61V8QfpicJEHMimcw16Sv9FcAxSQ81irxl0t5PEroAu0",
+      "serviceId": "postgres"
+    },
+    "neon-plan": {
+      "configuration": {},
+      "createdAt": "2026-07-30T22:46:11.732Z",
+      "lastRevealedAt": "2026-07-30T22:46:12.039Z",
+      "lastStatus": "complete",
+      "name": "neon-plan",
+      "providerId": "prvdr_61UH8uNXFdoJUJOtT54AC",
+      "providerName": "Neon",
+      "resourceId": "fres_61V8QfiXDw303KbSZ16Sv9FcAxSQ81irxl0t5PEroUxE",
+      "serviceId": "free"
+    },
+    "vercel-app": {
+      "configuration": {
+        "name": "okta-stripe-hack"
+      },
+      "createdAt": "2026-07-30T22:30:33.352Z",
+      "lastRevealedAt": "2026-07-30T22:30:33.565Z",
+      "lastStatus": "complete",
+      "name": "vercel-app",
+      "providerId": "prvdr_61ULUAr4zlQgZkvXY5LsG",
+      "providerName": "Vercel",
+      "resourceId": "fres_61V8QQaoAE4A6mG5G16Sv9FcAxSQ81irxl0t5PEroKDY",
+      "serviceId": "project"
+    },
+    "vercel-plan": {
+      "configuration": {},
+      "createdAt": "2026-07-30T22:30:24.901Z",
+      "lastRevealedAt": "2026-07-30T22:30:25.067Z",
+      "lastStatus": "complete",
+      "name": "vercel-plan",
+      "providerId": "prvdr_61ULUAr4zlQgZkvXY5LsG",
+      "providerName": "Vercel",
+      "resourceId": "fres_61V8QQSl8cOn0VmLa16Sv9FcAxSQ81irxl0t5PEro9ZA",
+      "serviceId": "hobby"
     }
+  },
+  "managedProjectVariableEnvKeys": {
+    ".env": [
+      "AUTH0_SECRET",
+      "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
+      "STRIPE_SECRET_KEY"
+    ]
   }
 }
