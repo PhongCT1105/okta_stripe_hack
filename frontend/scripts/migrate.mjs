@@ -11,21 +11,35 @@ if (!databaseUrl) {
 const sql = neon(databaseUrl);
 const databaseUrlPath = new URL("../../database/", import.meta.url);
 const migrationUrl = new URL("migrations/", databaseUrlPath);
-const files = [
-  new URL("schema.sql", databaseUrlPath),
-  ...(await readdir(migrationUrl))
-    .filter((file) => file.endsWith(".sql"))
-    .sort()
-    .map((file) => new URL(file, migrationUrl)),
-];
+const schemaUrl = new URL("schema.sql", databaseUrlPath);
+const migrationUrls = (await readdir(migrationUrl))
+  .filter((file) => file.endsWith(".sql"))
+  .sort()
+  .map((file) => new URL(file, migrationUrl));
 
-for (const file of files) {
+async function statementsFor(file) {
   const source = await readFile(file, "utf8");
-  const statements = source
+  return source
     .split(";")
     .map((statement) => statement.trim())
     .filter(Boolean);
-  for (const statement of statements) await sql.query(statement);
 }
+
+// Existing databases may have older table shapes. Create missing tables first,
+// apply additive migrations next, then create indexes that reference new
+// columns. This ordering is also safe for a completely empty database.
+const schemaStatements = await statementsFor(schemaUrl);
+const schemaIndexes = schemaStatements.filter((statement) =>
+  /^CREATE\s+(UNIQUE\s+)?INDEX\b/i.test(statement),
+);
+const schemaTables = schemaStatements.filter(
+  (statement) => !/^CREATE\s+(UNIQUE\s+)?INDEX\b/i.test(statement),
+);
+
+for (const statement of schemaTables) await sql.query(statement);
+for (const file of migrationUrls) {
+  for (const statement of await statementsFor(file)) await sql.query(statement);
+}
+for (const statement of schemaIndexes) await sql.query(statement);
 
 console.log("Database schema applied safely");
