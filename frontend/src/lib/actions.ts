@@ -502,9 +502,8 @@ export async function startTopUp(
  * Cashes credits back out through Stripe.
  *
  * Refunds against the member's own top-ups, oldest first, because that is
- * literally where the money came from. Two things are therefore not cashable
- * and the cap enforces both: welcome credits, which nobody paid for, and
- * anything already forfeited or previously withdrawn.
+ * literally where the money came from. Anything already forfeited or
+ * previously withdrawn is therefore not cashable, and the cap enforces it.
  */
 export async function cashOut(
   _prev: ActionResult | null,

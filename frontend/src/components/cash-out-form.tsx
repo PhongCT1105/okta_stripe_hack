@@ -12,9 +12,9 @@ import { formatMoney } from "@/lib/format";
 /**
  * Withdrawing credits back to the card that bought them.
  *
- * Capped at what the member actually paid in through Stripe — welcome credits
- * and anything already forfeited aren't theirs to take out. The cap is enforced
- * on the server too; this just explains it before they try.
+ * Capped at what the member actually paid in through Stripe — anything already
+ * forfeited isn't theirs to take out. The cap is enforced on the server too;
+ * this just explains it before they try.
  */
 export function CashOutForm({ maxCents }: { maxCents: number }) {
   const [amount, setAmount] = useState(String(maxCents / 100));
@@ -27,7 +27,7 @@ export function CashOutForm({ maxCents }: { maxCents: number }) {
     return (
       <p className="text-sm text-muted-foreground">
         Nothing to cash out yet. Only credits you bought through Stripe can be
-        withdrawn — welcome credits and anything you&apos;ve forfeited can&apos;t.
+        withdrawn, and anything you&apos;ve forfeited is gone for good.
       </p>
     );
   }

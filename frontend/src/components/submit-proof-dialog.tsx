@@ -18,6 +18,7 @@ import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/c
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
+import { LivePoseCapture } from "@/components/live-pose-capture";
 import { submitProof, type VerdictResult } from "@/lib/actions";
 import { formatMoney } from "@/lib/format";
 import { extractProofMedia, isImageFile, isVideoFile } from "@/lib/media-frames";
@@ -68,6 +69,27 @@ export function SubmitProofDialog({
   const analyzing = Boolean(analysisLabel);
 
   const proof = evidence || note.trim() || describeMedia(media);
+
+  /**
+   * Takes the result of a live count.
+   *
+   * Produces exactly the evidence string the uploaded-video path produces, so
+   * the server can't tell them apart and doesn't need to — a rep is a rep
+   * however it was measured.
+   */
+  function acceptLiveEvidence(
+    live: { count: number; analyzedFrames: number; confidentFrames: number; frames: string[] } | null,
+  ) {
+    setAnalysisError("");
+    if (!live) {
+      setEvidence("");
+      setMedia(null);
+      return;
+    }
+    const { frames, ...counted } = live;
+    setEvidence(`PUSHUP_EVIDENCE:${JSON.stringify(counted)}`);
+    setMedia(frames.length > 0 ? { kind: "video", frames } : null);
+  }
 
   async function analyzeFile(file: File | undefined) {
     if (!file) return;
@@ -127,7 +149,7 @@ export function SubmitProofDialog({
         }
       />
 
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
         {showVerdict && state?.status ? (
           <>
             <DialogHeader>
@@ -215,6 +237,33 @@ export function SubmitProofDialog({
                     <span className="absolute inset-x-0 top-1/2 border-t" />
                   </div>
                 </>
+              ) : null}
+
+              {/* Live counting is the primary path where a device verifier
+                  exists: the count is right or wrong while there is still time
+                  to fix it, rather than after the set is over. Uploading stays
+                  below for desktops and blocked cameras. */}
+              {isPushUp ? (
+                <Field>
+                  <FieldLabel>Count it live</FieldLabel>
+                  <LivePoseCapture
+                    onEvidence={acceptLiveEvidence}
+                    disabled={analyzing || pending}
+                  />
+                  <FieldDescription>
+                    Nothing is uploaded while you film. Only the count and a few
+                    stills are sent.
+                  </FieldDescription>
+                </Field>
+              ) : null}
+
+              {isPushUp ? (
+                <div className="relative text-center text-xs font-bold uppercase text-muted-foreground">
+                  <span className="relative z-10 bg-background px-3">
+                    or upload
+                  </span>
+                  <span className="absolute inset-x-0 top-1/2 border-t" />
+                </div>
               ) : null}
 
               <Field data-invalid={analysisError ? true : undefined}>

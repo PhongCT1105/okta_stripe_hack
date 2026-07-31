@@ -64,10 +64,14 @@ export default async function WalletPage() {
           </p>
         ) : null}
 
+        {/* Accounts start empty now, so zero is the normal first state rather
+            than a warning — but zero after a ledger of activity is a different
+            sentence, and reads wrong if the two share one. */}
         {balance <= 0 ? (
           <p className="mt-4 rounded-2xl bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">
-            You&apos;re out of credits. Until you top up, a missed day falls back
-            to a card payment you have to approve.
+            {entries.length === 0
+              ? "Buy credits before you stake — a commitment you haven't backed with anything isn't one."
+              : "You're out of credits. A missed day still settles against you, so top up before your next stake."}
           </p>
         ) : null}
 

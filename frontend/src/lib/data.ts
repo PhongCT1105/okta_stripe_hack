@@ -53,8 +53,9 @@ export async function getCurrentUser(): Promise<User> {
     displayName,
     avatarUrl: session.user.picture,
   });
-  await db()`INSERT INTO wallet_entries(user_id,amount_cents,kind,memo)
-    VALUES(${user.id},2500,'signup_grant','Welcome credits') ON CONFLICT DO NOTHING`;
+  // No signup grant. Credits are bought, so a new account starts at zero and
+  // the first thing it does is go through Stripe — which is also the only way
+  // a balance can later be cashed back out.
   return user;
 }
 export async function getWalletBalance(userId: string): Promise<number> {
