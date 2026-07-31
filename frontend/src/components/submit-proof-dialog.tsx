@@ -36,10 +36,13 @@ export function SubmitProofDialog({
   groupId,
   challengeTitle,
   commitmentAmountCents,
+  retry = false,
 }: {
   groupId: string;
   challengeTitle: string;
   commitmentAmountCents: number;
+  /** True when an earlier attempt today already came back missed. */
+  retry?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   // Three sources feed one submitted proof string, in priority order below:
@@ -113,9 +116,13 @@ export function SubmitProofDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger
         render={
-          <Button size="xl" className="w-full sm:w-auto">
+          <Button
+            size="xl"
+            variant={retry ? "secondary" : "default"}
+            className="w-full sm:w-auto"
+          >
             <Send data-icon="inline-start" />
-            Submit proof
+            {retry ? "Try again" : "Submit proof"}
           </Button>
         }
       />

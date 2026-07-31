@@ -28,7 +28,7 @@ import {
 } from "@/lib/data";
 import {
   activateChallenge, createGroupRecord, insertMessage, joinGroupRecord,
-  overrideSubmission, persistVerdict, removeParticipant,
+  overrideSubmission, persistVerdict, removeParticipant, settleDueRounds,
   recordWalletEntry, replaceProposal, setCheckoutSession, updateUserProfile, upsertParticipant,
 } from "@/lib/repository";
 import {
@@ -319,6 +319,8 @@ export async function advanceDemoDay(
   if (!user) return { ok: false, error: "You're not a member of this group." };
 
   setDemoDayOffset(getDemoDayOffset() + 1);
+  // Moving the clock is what closes yesterday, so collect on it now.
+  await settleDueRounds(groupId, localDate());
 
   revalidatePath(`/groups/${groupId}`);
   revalidatePath("/", "layout");
@@ -544,7 +546,12 @@ export async function cashOut(
     if (take <= 0) continue;
 
     try {
-      const refund = await refundTopUp(source.paymentIntentId, take, user.id);
+      const refund = await refundTopUp(
+        source.paymentIntentId,
+        take,
+        user.id,
+        source.remainingCents,
+      );
       await recordWalletEntry({
         userId: user.id,
         amountCents: -take,

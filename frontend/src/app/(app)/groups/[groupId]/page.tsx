@@ -16,6 +16,7 @@ import {
 import { isDemoModeEnabled } from "@/lib/actions";
 import { MEMBERS_REQUIRED_TO_START } from "@/lib/config";
 import { getDemoDayOffset } from "@/lib/demo-clock";
+import { settleDueRounds } from "@/lib/repository";
 import {
   getActiveChallenge,
   getChatMessages,
@@ -27,6 +28,7 @@ import {
   getParticipants,
   getProposedChallenge,
   getStakeSummary,
+  localDate,
 } from "@/lib/data";
 
 /** The group dashboard — the screen the demo spends most of its time on. */
@@ -55,6 +57,10 @@ export default async function GroupPage({
   const participants = challenge ? await getParticipants(challenge.id) : [];
   const stakes = await getStakeSummary(active);
   const round = active ? getCurrentRound(active) : null;
+
+  // Rounds close on their own; nothing schedules that. Settling on load means
+  // the first person to look after a day ends is what triggers collection.
+  if (active) await settleDueRounds(group.id, localDate());
 
   const demoMode = await isDemoModeEnabled();
   const you = entries.find((entry) => entry.user.id === user.id) ?? null;
