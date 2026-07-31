@@ -162,24 +162,56 @@ export async function persistVerdict(input: {
       WHERE group_id=${input.groupId} AND user_id=${input.userId}`;
     return;
   }
-  await sql`WITH saved AS (
-    INSERT INTO submissions(challenge_id,user_id,round_date,proof,status,agent_reason,reviewed_at)
+  await sql`INSERT INTO submissions(challenge_id,user_id,round_date,proof,status,agent_reason,reviewed_at)
     VALUES(${input.challengeId},${input.userId},${input.roundDate},${input.proof},${input.status},${input.reason},now())
     ON CONFLICT(challenge_id,user_id,round_date) DO UPDATE SET proof=EXCLUDED.proof,status=EXCLUDED.status,
-      agent_reason=EXCLUDED.agent_reason,submitted_at=now(),reviewed_at=now()
-  ) UPDATE group_members SET streak=0 WHERE group_id=${input.groupId} AND user_id=${input.userId}`;
-  if (input.stakeCents <= 0) return;
-  const forfeited = await sql`INSERT INTO wallet_entries
-    (user_id,amount_cents,kind,memo,challenge_id,round_date)
-    SELECT ${input.userId},${-input.stakeCents},'forfeit','Missed commitment',${input.challengeId},${input.roundDate}
-    WHERE (SELECT coalesce(sum(amount_cents),0) FROM wallet_entries WHERE user_id=${input.userId}) >= ${input.stakeCents}
-    ON CONFLICT DO NOTHING RETURNING id`;
-  if (forfeited.length > 0) return;
-  const [row] = await sql`INSERT INTO payment_requests(challenge_id,user_id,round_date,amount_cents,status)
-    VALUES(${input.challengeId},${input.userId},${input.roundDate},${input.stakeCents},'pending')
-    ON CONFLICT(challenge_id,user_id,round_date) DO UPDATE SET amount_cents=EXCLUDED.amount_cents
-    RETURNING id`;
-  return String(row.id);
+      agent_reason=EXCLUDED.agent_reason,submitted_at=now(),reviewed_at=now()`;
+  // Deliberately no forfeit here. The day is still open, so this miss may not be
+  // the final word — charging now would punish someone who goes on to finish.
+  // settleDueRounds() collects on rounds once they are actually over.
+  return;
+}
+
+/**
+ * Charges for rounds that have finished without a passing submission.
+ *
+ * Settlement is separated from submission so a member can retry all day: only
+ * the state of a round *after* it closes decides whether money moves. Rounds
+ * are identified by date, so this is naturally idempotent — the partial unique
+ * index on forfeits means a second run inserts nothing.
+ *
+ * Called when the group page loads and when the demo clock moves, rather than
+ * on a schedule: a round that nobody looks at has nothing to settle yet.
+ */
+export async function settleDueRounds(groupId: string, today: string): Promise<void> {
+  const sql = db();
+
+  await sql`INSERT INTO wallet_entries(user_id,amount_cents,kind,memo,challenge_id,round_date)
+    SELECT p.user_id, -p.stake_cents, 'forfeit', 'Missed "' || c.title || '"', c.id, d::date
+    FROM challenges c
+    JOIN challenge_participants p ON p.challenge_id = c.id
+    CROSS JOIN generate_series(
+      c.start_date,
+      LEAST(${today}::date - 1, c.start_date + (c.duration_days - 1)),
+      interval '1 day') d
+    LEFT JOIN submissions s ON s.challenge_id = c.id AND s.user_id = p.user_id
+      AND s.round_date = d::date AND s.status = 'passed'
+    WHERE c.group_id = ${groupId} AND c.status = 'active' AND p.stake_cents > 0
+      AND s.id IS NULL
+    ON CONFLICT DO NOTHING`;
+
+  // A streak only breaks once a day is actually over. If the most recently
+  // closed round has no passing submission, the run is broken; days still open
+  // are none of this query's business.
+  await sql`UPDATE group_members m SET streak = 0
+    FROM challenges c
+    WHERE c.group_id = ${groupId} AND c.status = 'active' AND m.group_id = ${groupId}
+      AND (${today}::date - 1) >= c.start_date
+      AND NOT EXISTS (
+        SELECT 1 FROM submissions s
+        WHERE s.challenge_id = c.id AND s.user_id = m.user_id
+          AND s.round_date = LEAST(${today}::date - 1, c.start_date + (c.duration_days - 1))
+          AND s.status = 'passed')`;
 }
 
 export async function setCheckoutSession(requestId: string, sessionId: string) {

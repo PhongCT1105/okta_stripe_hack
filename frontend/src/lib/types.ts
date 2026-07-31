@@ -165,9 +165,11 @@ export interface Submission {
 /**
  * Why credits moved.
  *
- * `signup_grant` is the credits every account starts with, `top_up` is credits
- * bought through Stripe, `forfeit` is a missed round settling itself, and
- * `cash_out` is credits refunded back out through Stripe.
+ * `top_up` is credits bought through Stripe, `forfeit` is a missed round
+ * settling itself, and `cash_out` is credits refunded back out through Stripe.
+ *
+ * `signup_grant` is no longer issued — accounts start empty — but the kind
+ * stays so ledgers written before that change still read back.
  */
 export type WalletEntryKind =
   | "signup_grant"

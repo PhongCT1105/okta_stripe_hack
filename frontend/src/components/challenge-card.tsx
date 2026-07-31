@@ -119,6 +119,24 @@ export function ChallengeCard({
                 {`Review the ${formatMoney(pendingPayment.amountCents)} commitment`}
               </Button>
             ) : null}
+
+            {/* A miss isn't final while the day is still open — nothing has been
+                charged yet, and the point of the deadline is to give people until
+                it to actually finish. */}
+            {submission.status === "missed" ? (
+              <>
+                <p className="text-sm text-primary-foreground/80">
+                  Nothing has been taken yet. You have until the deadline to try
+                  again.
+                </p>
+                <SubmitProofDialog
+                  groupId={challenge.groupId}
+                  challengeTitle={challenge.title}
+                  commitmentAmountCents={stakeCents}
+                  retry
+                />
+              </>
+            ) : null}
           </div>
         ) : (
           <SubmitProofDialog

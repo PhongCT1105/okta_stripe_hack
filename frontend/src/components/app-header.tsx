@@ -12,7 +12,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { formatMoney } from "@/lib/format";
-import { getCurrentUser, getSignInState, getWalletBalance } from "@/lib/data";
+import {
+  getCurrentUser,
+  getGroupsForUser,
+  getSignInState,
+  getWalletBalance,
+} from "@/lib/data";
 
 /**
  * Global header for signed-in pages.
@@ -28,13 +33,21 @@ export async function AppHeader() {
     getCurrentUser(),
     getSignInState(),
   ]);
-  const balance = await getWalletBalance(user.id);
+  const [balance, groups] = await Promise.all([
+    getWalletBalance(user.id),
+    getGroupsForUser(user.id),
+  ]);
+
+  // "Home" is wherever the challenge is. For the common case — one group — the
+  // list in between is a page with a single row on it, so the mark skips it and
+  // goes straight to the group. With none or several, the list is the answer.
+  const homeHref = groups.length === 1 ? `/groups/${groups[0].id}` : "/groups";
 
   return (
     <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-md">
       <div className="mx-auto flex h-16 w-full max-w-5xl items-center justify-between gap-4 px-4 sm:px-6">
         <Link
-          href="/groups"
+          href={homeHref}
           className="flex items-center gap-2.5 rounded-xl outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
         >
           <BrandMark />

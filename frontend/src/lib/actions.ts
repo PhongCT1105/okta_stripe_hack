@@ -3,7 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { evaluateProof } from "@/lib/agent";
+import { MEMBERS_REQUIRED_TO_START } from "@/lib/config";
 import { runAgentTurn } from "@/lib/chat-agent";
+import { getDemoDayOffset, isDemoMode, setDemoDayOffset } from "@/lib/demo-clock";
 import {
   getActiveChallenge,
   getChallenge,
@@ -26,7 +28,7 @@ import {
 } from "@/lib/data";
 import {
   activateChallenge, createGroupRecord, insertMessage, joinGroupRecord,
-  overrideSubmission, persistVerdict, removeParticipant,
+  overrideSubmission, persistVerdict, removeParticipant, settleDueRounds,
   recordWalletEntry, replaceProposal, setCheckoutSession, updateUserProfile, upsertParticipant,
 } from "@/lib/repository";
 import {
@@ -57,18 +59,6 @@ export interface VerdictResult extends ActionResult {
   /** Present when the verdict created a payment request. */
   paymentRequestId?: string;
 }
-
-/**
- * How many members must stake before a proposal becomes a live challenge.
- *
- * Two by default, because a commitment nobody else made isn't accountability.
- * Overridable so one person can walk the whole loop — stake, miss, pay — while
- * testing, without needing a second identity just to reach the pay screen.
- */
-const MEMBERS_REQUIRED_TO_START = Math.max(
-  1,
-  Number(process.env.MEMBERS_REQUIRED_TO_START) || 2,
-);
 
 /**
  * Resolves the caller and confirms they belong to the group.
@@ -304,6 +294,59 @@ export async function joinChallenge(
   return { ok: true };
 }
 
+/**
+ * Whether the demo clock controls are switched on.
+ *
+ * Off unless explicitly enabled, because moving time is not something a real
+ * deployment should offer — a member could skip past a deadline they were about
+ * to miss.
+ */
+export async function isDemoModeEnabled(): Promise<boolean> {
+  return isDemoMode();
+}
+
+/** Steps the demo clock forward one day. */
+export async function advanceDemoDay(
+  _prev: ActionResult | null,
+  formData: FormData,
+): Promise<ActionResult> {
+  if (!(await isDemoModeEnabled())) {
+    return { ok: false, error: "Demo controls are off." };
+  }
+
+  const groupId = String(formData.get("groupId") ?? "");
+  const user = await requireMember(groupId);
+  if (!user) return { ok: false, error: "You're not a member of this group." };
+
+  setDemoDayOffset(getDemoDayOffset() + 1);
+  // Moving the clock is what closes yesterday, so collect on it now.
+  await settleDueRounds(groupId, localDate());
+
+  revalidatePath(`/groups/${groupId}`);
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+/** Puts the demo clock back on real time. */
+export async function resetDemoDay(
+  _prev: ActionResult | null,
+  formData: FormData,
+): Promise<ActionResult> {
+  if (!(await isDemoModeEnabled())) {
+    return { ok: false, error: "Demo controls are off." };
+  }
+
+  const groupId = String(formData.get("groupId") ?? "");
+  const user = await requireMember(groupId);
+  if (!user) return { ok: false, error: "You're not a member of this group." };
+
+  setDemoDayOffset(0);
+
+  revalidatePath(`/groups/${groupId}`);
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
 /** Formats integer cents for a ledger memo. */
 function formatCents(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
@@ -402,9 +445,12 @@ export async function submitProof(
     proof, status: verdict.status, reason: verdict.reason, stakeCents: participant.stakeCents,
   });
 
-
-
   revalidatePath(`/groups/${groupId}`);
+  revalidatePath("/wallet");
+  // A miss spends credits, and the balance lives in the header — which sits in
+  // the layout and would otherwise keep whatever it rendered before the verdict.
+  revalidatePath("/", "layout");
+
   return {
     ok: true,
     status: verdict.status,
@@ -456,9 +502,8 @@ export async function startTopUp(
  * Cashes credits back out through Stripe.
  *
  * Refunds against the member's own top-ups, oldest first, because that is
- * literally where the money came from. Two things are therefore not cashable
- * and the cap enforces both: welcome credits, which nobody paid for, and
- * anything already forfeited or previously withdrawn.
+ * literally where the money came from. Anything already forfeited or
+ * previously withdrawn is therefore not cashable, and the cap enforces it.
  */
 export async function cashOut(
   _prev: ActionResult | null,
@@ -500,7 +545,12 @@ export async function cashOut(
     if (take <= 0) continue;
 
     try {
-      const refund = await refundTopUp(source.paymentIntentId, take, user.id);
+      const refund = await refundTopUp(
+        source.paymentIntentId,
+        take,
+        user.id,
+        source.remainingCents,
+      );
       await recordWalletEntry({
         userId: user.id,
         amountCents: -take,

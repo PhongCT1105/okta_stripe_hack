@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { ChallengeCard } from "@/components/challenge-card";
 import { ChallengeProposal } from "@/components/challenge-proposal";
+import { DemoDayControls } from "@/components/demo-day-controls";
 import { GroupChat } from "@/components/group-chat";
 import { InviteLink } from "@/components/invite-link";
 import { Leaderboard } from "@/components/leaderboard";
@@ -12,6 +13,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { isDemoModeEnabled } from "@/lib/actions";
+import { MEMBERS_REQUIRED_TO_START } from "@/lib/config";
+import { getDemoDayOffset } from "@/lib/demo-clock";
+import { settleDueRounds } from "@/lib/repository";
 import {
   getActiveChallenge,
   getChatMessages,
@@ -23,10 +28,8 @@ import {
   getParticipants,
   getProposedChallenge,
   getStakeSummary,
+  localDate,
 } from "@/lib/data";
-
-/** Members must start a challenge before it binds anyone. Keep in sync with actions.ts. */
-const MEMBERS_REQUIRED_TO_START = 2;
 
 /** The group dashboard — the screen the demo spends most of its time on. */
 export default async function GroupPage({
@@ -55,6 +58,11 @@ export default async function GroupPage({
   const stakes = await getStakeSummary(active);
   const round = active ? getCurrentRound(active) : null;
 
+  // Rounds close on their own; nothing schedules that. Settling on load means
+  // the first person to look after a day ends is what triggers collection.
+  if (active) await settleDueRounds(group.id, localDate());
+
+  const demoMode = await isDemoModeEnabled();
   const you = entries.find((entry) => entry.user.id === user.id) ?? null;
   const members = entries.map((entry) => entry.user);
 
@@ -66,6 +74,10 @@ export default async function GroupPage({
           {`${entries.length} member${entries.length === 1 ? "" : "s"} holding each other to it.`}
         </p>
       </div>
+
+      {demoMode ? (
+        <DemoDayControls groupId={group.id} dayOffset={getDemoDayOffset()} />
+      ) : null}
 
       {active ? (
         <>

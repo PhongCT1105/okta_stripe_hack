@@ -163,6 +163,7 @@ export async function refundTopUp(
   paymentIntentId: string,
   amountCents: number,
   userId: string,
+  remainingBeforeCents: number,
 ): Promise<Stripe.Refund> {
   return getStripe().refunds.create(
     {
@@ -170,7 +171,15 @@ export async function refundTopUp(
       amount: amountCents,
       metadata: { kind: "cash_out", userId },
     },
-    { idempotencyKey: `cash-out-${paymentIntentId}-${amountCents}-${userId}` },
+    // Keyed on how much was left before this refund, not just the amount. Two
+    // withdrawals of the same size from the same purchase are different
+    // refunds, and a key that couldn't tell them apart would make Stripe
+    // replay the first one — the ledger would record money that never moved.
+    // A genuine retry re-enters with the same remaining balance, so it still
+    // collapses onto one refund.
+    {
+      idempotencyKey: `cash-out-${paymentIntentId}-${remainingBeforeCents}-${amountCents}-${userId}`,
+    },
   );
 }
 

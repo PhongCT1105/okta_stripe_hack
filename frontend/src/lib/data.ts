@@ -1,4 +1,5 @@
 import { getOptionalSession } from "@/lib/auth0";
+import { now } from "@/lib/demo-clock";
 import { db } from "@/lib/db";
 import {
   mapChallenge, mapGroup, mapMember, mapMessage, mapParticipant,
@@ -14,7 +15,14 @@ export const INTEREST_OPTIONS = [
 ] as const;
 export const TOP_UP_OPTIONS_CENTS = [1000, 2500, 5000] as const;
 
-export function localDate(date = new Date()): string {
+/**
+ * YYYY-MM-DD in local time. The round identifier used everywhere.
+ *
+ * With no argument it means "today", which the demo clock can move. An explicit
+ * date is left alone — shifting a date someone handed us would corrupt a record
+ * rather than advance time.
+ */
+export function localDate(date = now()): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 /** Two-letter fallback shown when Auth0 gives us no avatar. */
@@ -45,8 +53,9 @@ export async function getCurrentUser(): Promise<User> {
     displayName,
     avatarUrl: session.user.picture,
   });
-  await db()`INSERT INTO wallet_entries(user_id,amount_cents,kind,memo)
-    VALUES(${user.id},2500,'signup_grant','Welcome credits') ON CONFLICT DO NOTHING`;
+  // No signup grant. Credits are bought, so a new account starts at zero and
+  // the first thing it does is go through Stripe — which is also the only way
+  // a balance can later be cashed back out.
   return user;
 }
 export async function getWalletBalance(userId: string): Promise<number> {

@@ -22,6 +22,17 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+/**
+ * Explicit because proof capture is a phone-first flow now: the camera view
+ * needs the layout viewport to match the device, and pinch-zoom must stay
+ * available — capping it would fail an accessibility check for no benefit.
+ */
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover" as const,
+};
+
 export const metadata: Metadata = {
   title: "WIP AI — Do it or get WIPped",
   description:
